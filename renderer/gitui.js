@@ -555,7 +555,10 @@ export function createGit(ctx) {
       'Verwijderen',
       true,
     );
-    if (!sure) return;
+    if (!sure) {
+      reposModal();
+      return;
+    }
     toast(`Verwijderen: ${r.nameWithOwner}…`);
     try {
       const res = await call('git:deleteRepo', r.nameWithOwner);
@@ -598,7 +601,10 @@ export function createGit(ctx) {
       toPrivate ? 'Privé maken' : 'Publiek maken',
       !toPrivate,
     );
-    if (!sure) return;
+    if (!sure) {
+      reposModal();
+      return;
+    }
     try {
       await call('git:setVisibility', r.nameWithOwner, toPrivate);
       toast(toPrivate ? 'Repo is nu privé' : 'Repo is nu publiek');
