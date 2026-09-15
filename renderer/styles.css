@@ -78,7 +78,7 @@ kbd { font: 11px var(--font); color: var(--faint); margin-left: auto; }
 .sidebar-brand { padding: 0 10px 12px; }
 .brand { display: flex; align-items: center; gap: 11px; width: 100%; padding: 8px 9px; border-radius: 13px; text-align: left; }
 .brand:hover { background: var(--hover); }
-.brand-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; flex: none; box-shadow: 0 2px 7px rgba(0, 0, 0, 0.17); }
+.brand-logo { width: 44px; height: 40px; border-radius: 12px; object-fit: contain; object-position: left center; flex: none; }
 .brand-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .brand-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .brand-name { font-size: 16px; font-weight: 680; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -213,7 +213,7 @@ kbd { font: 11px var(--font); color: var(--faint); margin-left: auto; }
 .empty { margin: auto; padding: 9vh 0 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .logo { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(145deg, #3b6cf0, #1b2f6b); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 24px rgba(44, 95, 217, 0.25); }
 .logo.photo { background: none; box-shadow: none; }
-.app-logo { display: block; border-radius: 16px; object-fit: cover; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
+.app-logo { display: block; border-radius: 16px; object-fit: contain; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
 .empty h1 { font-size: 26px; font-weight: 650; margin: 8px 0 0; letter-spacing: -0.01em; }
 .empty p { margin: 0; color: var(--muted); max-width: min(560px, 100%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; justify-content: center; }
