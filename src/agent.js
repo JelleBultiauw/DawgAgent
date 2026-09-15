@@ -10,6 +10,7 @@ const { streamChat, quickChat } = require('./llm');
 const { buildTools, toApiTools, needsApproval } = require('./tools');
 const { buildSystemPrompt } = require('./prompt');
 const { attachmentBlock } = require('./attachments');
+const i18n = require('./i18n');
 const { isInsideApp, createSnapshot, APP_DIR } = require('./snapshots');
 
 const MAX_TOOL_TEXT = 40000;
@@ -230,7 +231,7 @@ class Agent {
     if (images.length) msg._images = images;
 
     const isFirst = !session.messages.some((m) => m.role === 'user');
-    if (isFirst && !session.parentId) session.title = (text.trim() || attachments[0]?.name || 'Nieuwe chat').replace(/\s+/g, ' ').slice(0, 60);
+    if (isFirst && !session.parentId) session.title = (text.trim() || attachments[0]?.name || i18n.t('Nieuwe chat')).replace(/\s+/g, ' ').slice(0, 60);
     session.messages.push(msg);
     store.saveSession(session);
 

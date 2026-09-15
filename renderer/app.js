@@ -1302,7 +1302,8 @@ function renderComposer() {
     $('#chip-mode').title = 'Goedkeuring';
     chip($('#chip-computer'), 'monitor', cfg.computerUse ? 'Computer aan' : 'Computer', cfg.computerUse);
   }
-  const think = cfg.thinking === 'off' ? '' : ` · ${THINKING[cfg.thinking].replace('Denken: ', '')}`;
+  const thinkLabel = t(THINKING[cfg.thinking] || '');
+  const think = cfg.thinking === 'off' ? '' : ` · ${thinkLabel.replace(/^(Denken|Thinking):\s*/, '')}`;
   $('#chip-model').textContent = '';
   $('#chip-model').append(h('span', { class: 'label' }, `${modelLabel(cfg.model)}${think}`), icon('down', 13));
   $('#composer-hint').textContent = s?.running ? `DawgAgent werkt… druk op Esc om te stoppen` : cfg.hasKey ? '' : 'Voeg eerst je DeepSeek API-sleutel toe in Instellingen';

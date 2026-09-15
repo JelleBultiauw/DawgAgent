@@ -47,7 +47,7 @@ function tDepth(text, depth) {
       const groups = args.slice(0, -2);
       return String(to).replace(/\$(\d+)/g, (m, i) => {
         const value = groups[Number(i)];
-        if (value == null) return m;
+        if (value == null) return ''; // groep deed niet mee (optioneel) → niets
         return depth > 0 ? tDepth(value, depth - 1) : value;
       });
     });
