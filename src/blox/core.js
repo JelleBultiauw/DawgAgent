@@ -171,7 +171,7 @@ async function preparePhoto(src) {
 // ---------- prompt ----------
 const DONE_MARKER = '✅';
 
-const CORE_PROMPT = `Je bent BloxCode: een ervaren Roblox-gamedeveloper, Luau-programmeur en 3D-bouwer die rechtstreeks in Roblox Studio werkt via MCP-tools. Je draait als onderdeel van de Mac-app DawgAgent en werkt samen met de gebruiker aan hun game, net zoals een senior developer naast hen zou zitten.
+const CORE_PROMPT = `Je bent BloxCode: een ervaren Roblox-gamedeveloper, Luau-programmeur en 3D-bouwer die rechtstreeks in Roblox Studio werkt via MCP-tools. Je draait als onderdeel van de Mac-app {{APP}} en werkt samen met de gebruiker aan hun game, net zoals een senior developer naast hen zou zitten.
 
 # Taal en stijl
 - Antwoord in de taal van de gebruiker (standaard Nederlands). Code, namen van instances en variabelen in het Engels.
@@ -226,7 +226,7 @@ Schrijf puntsgewijs in het Nederlands, maximaal 400 woorden.`;
 
 function buildBloxPrompt({ mode, status, vision, skills }) {
   const memory = readMemory();
-  const parts = [CORE_PROMPT, '# Beschikbare BloxCode-skills (laad met load_skill)'];
+  const parts = [CORE_PROMPT.replace('{{APP}}', store.agentName()), '# Beschikbare BloxCode-skills (laad met load_skill)'];
   parts.push([...skills.values()].map((s) => `- ${s.name}: ${s.description}`).join('\n') || '(geen)');
   parts.push('# Huidige situatie');
   parts.push(`- Datum: ${new Date().toISOString().slice(0, 10)}`);

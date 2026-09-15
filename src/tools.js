@@ -729,6 +729,10 @@ function buildTools({ cfg, connectors }) {
       run: (a, ctx) => connectors.call(def.name, a, ctx),
     });
   }
+  // In de DawgSecretAgent-modus heet de app in álle toolteksten anders (geen paden die dat woord
+  // bevatten, dus een simpele vervanging is hier veilig).
+  const name = cfg?.secretAgent ? 'DawgSecretAgent' : 'DawgAgent';
+  if (name !== 'DawgAgent') for (const t of tools) if (typeof t.description === 'string') t.description = t.description.replaceAll('DawgAgent', name);
   return tools;
 }
 

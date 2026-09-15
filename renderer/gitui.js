@@ -1,7 +1,8 @@
 // GitHub-sync in de interface: knop in de zijbalk, mini-activiteitsgraph en de vensters.
 // app.js geeft zijn hulpfuncties mee via createGit(ctx).
 export function createGit(ctx) {
-  const { h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state } = ctx;
+  const { h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state, appName } = ctx;
+  const name = () => (typeof appName === 'function' ? appName() : 'DawgAgent');
 
   const G = {
     status: null,
@@ -175,7 +176,7 @@ export function createGit(ctx) {
     box.append(
       settingRow(
         'Automatisch pushen',
-        'Aan: na elke wijziging die DawgAgent maakt gaat alles meteen naar GitHub (zonder te vragen). Uit: alleen als je hier op Pushen klikt.',
+        `Aan: na elke wijziging die ${name()} maakt gaat alles meteen naar GitHub (zonder te vragen). Uit: alleen als je hier op Pushen klikt.`,
         toggleSwitch(Boolean(st?.auto), (on) => setAuto(on)),
       ),
     );
@@ -185,7 +186,7 @@ export function createGit(ctx) {
         h(
           'div',
           { class: 'git-note' },
-          'Nog niet ingelogd bij GitHub. Log één keer in via de knop hiernaast; daarna kan DawgAgent repo\u2019s aanmaken en pushen.',
+          `Nog niet ingelogd bij GitHub. Log één keer in via de knop hiernaast; daarna kan ${name()} repo\u2019s aanmaken en pushen.`,
           h('div', { style: 'margin-top:8px' }, btn('Inloggen met GitHub', '', () => login(), 'external')),
         ),
       );
@@ -579,11 +580,11 @@ export function createGit(ctx) {
   }
 
   async function renameRepoFlow(r) {
-    const name = await promptDialog('Naam van de repo wijzigen', r.name);
-    if (!name || name === r.name) return;
+    const newName = await promptDialog('Naam van de repo wijzigen', r.name);
+    if (!newName || newName === r.name) return;
     try {
-      await call('git:renameRepo', r.nameWithOwner, name.trim());
-      toast(`Hernoemd naar ${name.trim()}`);
+      await call('git:renameRepo', r.nameWithOwner, newName.trim());
+      toast(`Hernoemd naar ${newName.trim()}`);
       G.repos = null;
       reposModal();
     } catch (e) {

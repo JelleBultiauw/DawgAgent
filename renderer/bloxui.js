@@ -47,7 +47,8 @@ export const BLOX_TOOL_META = {
 };
 
 export function createBlox(ctx) {
-  const { h, icon, call, toast, openMenu, openModal, closeModal, confirmDialog, btn, md, state } = ctx;
+  const { h, icon, call, toast, openMenu, openModal, closeModal, confirmDialog, btn, md, state, appName } = ctx;
+  const name = () => (typeof appName === 'function' ? appName() : 'DawgAgent');
 
   const B = {
     status: null,
@@ -484,7 +485,7 @@ export function createBlox(ctx) {
       h('div', { class: 'row stack' }, h('div', {}, h('div', { class: 'row-label' }, 'Beschermde paden'), h('div', { class: 'row-hint' }, 'Alles wat deze paden raakt vraagt altijd toestemming (één per regel)')), protectedPaths),
       h('div', { class: 'row stack' }, h('div', {}, h('div', { class: 'row-label' }, 'StudioMCP'), h('div', { class: 'row-hint' }, 'Pad naar de MCP-server van Roblox Studio')), mcp),
     );
-    modal('BloxCode-instellingen', 'Model, nadenken en API-sleutel deel je met de rest van DawgAgent (rechtsonder bij het invoerveld en in Instellingen).', body, [btn('Serverlog', 'ghost', () => call('blox:openPath', 'log'), 'file')]);
+    modal('BloxCode-instellingen', `Model, nadenken en API-sleutel deel je met de rest van ${name()} (rechtsonder bij het invoerveld en in Instellingen).`, body, [btn('Serverlog', 'ghost', () => call('blox:openPath', 'log'), 'file')]);
   }
 
   async function doctorModal() {

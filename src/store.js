@@ -33,6 +33,7 @@ const DEFAULTS = {
   maxSteps: 150,
 
   autoTodos: false, // laat DawgAgent standaard een takenlijst bijhouden (Taken-paneel)
+  secretAgent: false, // DawgSecretAgent-modus: alleen naam + logo veranderen, verder niets
   panelOpen: false, // zijpaneel open bij het starten
   panelTab: 'chat',
   panelWidth: 400,
@@ -77,6 +78,12 @@ function cleanApiKey(apiKey) {
 
 function getApiKey() {
   return cleanApiKey(readJson(KEY_FILE, {}).apiKey || process.env.DEEPSEEK_API_KEY || '');
+}
+
+// De naam waarmee de app nu naar buiten treedt. In de "secret agent"-modus heet hij
+// DawgSecretAgent: alleen de naam in de teksten en het logo veranderen, niets functioneels.
+function agentName(cfg) {
+  return (cfg || getConfig()).secretAgent ? 'DawgSecretAgent' : 'DawgAgent';
 }
 
 function setApiKey(apiKey) {
@@ -190,6 +197,7 @@ module.exports = {
   getConfig,
   setConfig,
   getApiKey,
+  agentName,
   setApiKey,
   cleanApiKey,
   newSession,
