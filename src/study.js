@@ -543,21 +543,38 @@ function hasPowerpoint() {
   return fs.existsSync('/Applications/Microsoft PowerPoint.app');
 }
 
+// De app laat de gebruiker weten dat er even iets gebeurt (main geeft de functie door).
+let notifyToast = () => {};
+function init(fn) {
+  if (typeof fn === 'function') notifyToast = fn;
+}
+
 async function pptxToPdf(file, outDir) {
   if (!hasPowerpoint()) return { error: 'Microsoft PowerPoint staat niet in /Applications.' };
   fs.mkdirSync(outDir, { recursive: true });
   const stat = fs.statSync(file);
   const hash = crypto.createHash('sha1').update(`${file}|${stat.size}|${Math.round(stat.mtimeMs)}`).digest('hex').slice(0, 8);
-  const out = path.join(outDir, `${path.basename(file).replace(/\.[^.]+$/, '')}-${hash}.pdf`);
+  const base = path.basename(file).replace(/\.[^.]+$/, '');
+  const out = path.join(outDir, `${base}-${hash}.pdf`);
   if (fs.existsSync(out) && fs.statSync(out).size > 1000) return { pdf: out, cached: true };
+
+  // PowerPoint is een sandbox-app: hij mag alleen schrijven in mappen waar hij al toegang
+  // toe heeft (de map van het bestand zelf) en niet in onze datamap. Daarom exporteren we
+  // naast het origineel en verplaatsen we het pdf-bestand daarna naar de study-map.
+  const attempts = [path.join(path.dirname(file), `.dawgagent-${hash}.pdf`), path.join(os.tmpdir(), `dawgagent-${hash}.pdf`)];
+  notifyToast(`PowerPoint zet "${path.basename(file)}" even om naar pdf — dat duurt ongeveer een halve minuut.`);
+
   // PowerPoint's `open` geeft het document niet terug; via "active presentation" werkt het wel.
-  // Duurt ongeveer een halve minuut voor een dik deck.
   const script = `on run argv
   set inPath to item 1 of argv
   set outPath to item 2 of argv
   tell application "Microsoft PowerPoint"
     activate
     open POSIX file inPath
+    repeat 60 times
+      if (count of presentations) > 0 then exit repeat
+      delay 1
+    end repeat
     delay 3
     set pres to active presentation
     save pres in POSIX file outPath as save as PDF
@@ -565,41 +582,88 @@ async function pptxToPdf(file, outDir) {
   end tell
   return "ok"
 end run`;
-  try {
-    await execFileP('osascript', ['-e', script, file, out], { timeout: 240000, maxBuffer: 32 * 1024 * 1024 });
-    if (fs.existsSync(out) && fs.statSync(out).size > 1000) return { pdf: out };
-    return { error: 'PowerPoint maakte geen pdf-bestand.' };
-  } catch (e) {
-    return { error: `PowerPoint-export mislukt: ${String(e.message || e).slice(0, 300)}` };
+
+  let lastError = null;
+  for (const tmpPdf of attempts) {
+    try {
+      fs.rmSync(tmpPdf, { force: true });
+      await execFileP('osascript', ['-e', script, file, tmpPdf], { timeout: 240000, maxBuffer: 32 * 1024 * 1024 });
+      if (!fs.existsSync(tmpPdf) || fs.statSync(tmpPdf).size < 1000) {
+        lastError = 'PowerPoint maakte geen pdf-bestand.';
+        continue;
+      }
+      try {
+        fs.renameSync(tmpPdf, out);
+      } catch {
+        fs.copyFileSync(tmpPdf, out);
+        fs.rmSync(tmpPdf, { force: true });
+      }
+      return { pdf: out };
+    } catch (e) {
+      lastError = `PowerPoint-export mislukt: ${String(e.message || e).slice(0, 200)}`;
+      fs.rmSync(tmpPdf, { force: true });
+    }
   }
+  return { error: lastError || 'PowerPoint-export mislukt.' };
 }
 
 // ---------- bron klaarzetten voor het paneel ----------
-// Bouwt (indien nodig) een bekijkbare pagina en geeft de file://-url terug.
-// pdf:true → voor presentaties eerst via PowerPoint naar pdf (echte dia's, ook formules).
-async function documentUrl(sessionId, file, { pdf = false } = {}) {
+// presentaties: standaard de échte dia's (via PowerPoint → pdf, daarna uit de cache);
+// html:true geeft de snelle tekstweergave in plaats daarvan — alleen als terugval of
+// als de gebruiker expliciet om tekst vraagt.
+async function documentUrl(sessionId, file, { pdf = false, html = false } = {}) {
   const kind = viewKind(file);
   if (!kind) return null;
   const abs = path.resolve(file);
   if (!fs.existsSync(abs)) return null;
   const title = path.basename(abs);
 
-  if ((kind === 'slides' || kind === 'ppt-legacy') && pdf) {
-    const outDir = path.join(panelDir(sessionId), 'pdf');
-    const res = await pptxToPdf(abs, outDir);
-    if (res.pdf) {
-      const parsed = kind === 'slides' ? parsePptx(abs) : { slides: [] };
-      return { url: pathToFileURL(res.pdf).href, kind: 'pdf', title: `${title.replace(/\.[^.]+$/, '')}.pdf`, path: res.pdf, sourcePath: abs, outline: parsed.slides.length ? pptxOutline(parsed) : null, pages: parsed.slides.length || null, note: res.cached ? null : 'De echte dia’s zijn via PowerPoint als pdf geëxporteerd.' };
+  if (kind === 'slides' || kind === 'ppt-legacy') {
+    if (!html) {
+      const outDir = path.join(panelDir(sessionId), 'pdf');
+      const res = await pptxToPdf(abs, outDir);
+      if (res.pdf) {
+        let outline = null;
+        let pages = null;
+        if (kind === 'slides') {
+          try {
+            const parsed = parsePptx(abs);
+            outline = pptxOutline(parsed);
+            pages = parsed.slides.length;
+          } catch {}
+        }
+        if (!pages || !outline) {
+          try {
+            const info = await pdfInfo(res.pdf);
+            pages = pages || info.pages;
+            if (!outline) outline = info.labels.map((label, i) => ({ n: i + 1, label }));
+          } catch {}
+        }
+        return {
+          url: pathToFileURL(res.pdf).href,
+          kind: 'pdf',
+          title,
+          path: res.pdf,
+          sourcePath: abs,
+          outline,
+          pages,
+          real: true,
+          note: res.cached ? null : 'De echte dia’s zijn via PowerPoint als pdf klaargezet.',
+        };
+      }
+      // Exporteren lukte niet (geen PowerPoint, of het bestand laat zich niet openen):
+      // dan de tekstweergave, met de reden erbij.
+      const fallback = await documentUrl(sessionId, file, { html: true });
+      return fallback ? { ...fallback, warning: `${res.error} De dia’s zijn daarom als tekst weergegeven.` } : null;
     }
-    return { ...(await documentUrl(sessionId, file)), warning: res.error };
-  }
-  if (kind === 'ppt-legacy') {
-    return {
-      kind,
-      title,
-      path: abs,
-      unsupported: 'Dit is het oude .ppt-formaat. Vraag DawgAgent het als pdf te openen (via PowerPoint), of exporteer het zelf naar .pptx of pdf.',
-    };
+    if (kind === 'ppt-legacy') {
+      return {
+        kind,
+        title,
+        path: abs,
+        unsupported: 'Dit is het oude .ppt-formaat en PowerPoint kon het niet openen. Exporteer het zelf naar .pptx of pdf en sleep het opnieuw in deze chat.',
+      };
+    }
   }
   if (kind === 'pdf' || kind === 'image' || kind === 'page') return { url: pathToFileURL(abs).href, kind, title, path: abs };
 
@@ -655,9 +719,9 @@ async function documentUrl(sessionId, file, { pdf = false } = {}) {
 }
 
 // Het bestand in het paneel openen en als bron in de leerstatus zetten.
-async function openInPanel({ sessionId, file, slide = null, pdf = false, panelRun, register = true }) {
+async function openInPanel({ sessionId, file, slide = null, pdf = false, html = false, panelRun, register = true }) {
   if (!sessionId || !file) return null;
-  const doc = await documentUrl(sessionId, file, { pdf });
+  const doc = await documentUrl(sessionId, file, { pdf, html });
   if (!doc || doc.unsupported) return doc;
 
   const url = slide ? `${doc.url}${doc.kind === 'pdf' ? `#page=${Number(slide)}` : `#s${Number(slide)}`}` : doc.url;
@@ -695,6 +759,7 @@ module.exports = {
   STATUSES,
   modeFor,
   studySessionId,
+  init,
   statePath,
   studyDir,
   panelDir,

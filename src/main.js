@@ -69,6 +69,8 @@ function send(channel, data) {
 // en stuurt het antwoord terug. Zo hoeft de agent niet via screenshots te werken.
 const panel = require('./panel');
 panel.init((channel, data) => send(channel, data));
+// Study laat via de interface weten wanneer PowerPoint even aan het werk is.
+study.init((text) => send('ui:toast', { text }));
 ipcMain.handle('panel:response', (_e, payload) => panel.resolve(payload));
 
 // ---------- HUD tijdens computer use ----------

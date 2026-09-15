@@ -3045,14 +3045,18 @@ function bindPanel() {
   $('#pterm-clear').addEventListener('click', () => state.panel.term?.clear());
 
   api.on('term:event', onTermEvent);
+  api.on('ui:toast', (d) => toast(typeof d === 'string' ? d : d?.text || '', 'info'));
   api.on('panel:open', (d) => {
-    if (!state.panel.open || (d?.tab && state.panel.tab !== d.tab)) panelToggle(true, d?.tab);
+    // De zichtbaarheid van het paneel is leidend, niet de onthouden stand: als de agent
+    // iets in het paneel wil zetten, moet het paneel ook echt openstaan.
+    const visible = !$('#panel').hidden;
+    if (!visible || (d?.tab && state.panel.tab !== d.tab)) panelToggle(true, d?.tab || state.panel.tab);
   });
   api.on('panel:request', async ({ id, op, args }) => {
     let result = null;
     let error = null;
     try {
-      if (!state.panel.open) panelToggle(true, 'browser');
+      if ($('#panel').hidden) panelToggle(true, 'browser');
       result = await panelOp(op, args || {});
     } catch (e) {
       error = e.message;

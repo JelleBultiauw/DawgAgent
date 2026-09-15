@@ -545,14 +545,14 @@ const PANEL = [
     description: `De browser die naast de chat in het zijpaneel van DawgAgent staat. Gebruik dit als de gebruiker "deze pagina", "mijn paneel", "de browser naast de chat" bedoelt, of om iets op te zoeken zonder de eigen Chrome van de gebruiker te verstoren. Het paneel opent automatisch. Gebruik dit ook om iets te tonen dat je voor de gebruiker bouwt of host: een lokale site of dev-server (http://localhost:POORT) hoort hier, niet in zijn eigen Chrome.
 
 Werkwijze: read (eenmalig) geeft de paginatekst plus genummerde elementen [1] [2] …; daarna click/type met die refs. Refs gelden tot de volgende read. Acties: ${'state · read · navigate · click · type · scroll · eval · document'}.
-Met document {path} zet je een bestand van de gebruiker in het paneel: pdf, presentatie (pptx), document (docx), spreadsheet, afbeelding of tekstbestand. Study gebruikt dit voor lesmateriaal — de dia's van een presentatie worden geteld als dekking. Met {path, slide:N} spring je naar dia/pagina N en met {path, pdf:true} exporteert de app een presentatie via PowerPoint naar pdf als de echte dia's (met formules) nodig zijn — dat opent PowerPoint even en duurt ongeveer een halve minuut.`,
+Met document {path} zet je een bestand van de gebruiker in het paneel: pdf, presentatie (pptx), document (docx), spreadsheet, afbeelding of tekstbestand. Study gebruikt dit voor lesmateriaal — de dia's van een presentatie worden geteld als dekking. Een presentatie wordt als de échte dia's getoond: de app exporteert hem één keer via PowerPoint naar pdf (PowerPoint gaat daarvoor even open, ongeveer een halve minuut; daarna komt hij uit de cache). Alleen als dat niet lukt valt hij terug op een tekstweergave, of gebruik {path, html:true} als je die snelle tekstweergave bewust wilt. Met {path, slide:N} spring je naar dia/pagina N.`,
     parameters: obj(
       {
-        action: { type: 'string', enum: ['state', 'read', 'navigate', 'click', 'type', 'scroll', 'eval', 'document'], description: 'state: url+titel · read: tekst+e elementen · navigate {url} · click {ref|selector} · type {ref|selector, value, submit} · scroll {amount} · eval {code} · document {path, slide?, pdf?}' },
+        action: { type: 'string', enum: ['state', 'read', 'navigate', 'click', 'type', 'scroll', 'eval', 'document'], description: 'state: url+titel · read: tekst+e elementen · navigate {url} · click {ref|selector} · type {ref|selector, value, submit} · scroll {amount} · eval {code} · document {path, slide?, html?}' },
         url: { type: 'string', description: 'Bij navigate.' },
         path: { type: 'string', description: 'Bij document: pad naar het bestand dat in het paneel moet komen.' },
         slide: { type: 'integer', description: 'Bij document: direct naar deze dia of pagina springen.' },
-        pdf: { type: 'boolean', description: 'Bij document met een presentatie: eerst via PowerPoint naar pdf exporteren (echte dia\'s, inclusief formules).' },
+        html: { type: 'boolean', description: 'Bij document met een presentatie: de snelle tekstweergave in plaats van de echte dia\'s (pdf via PowerPoint).' },
         ref: { type: 'integer', description: 'Genummerd element uit read, bv. 3.' },
         selector: { type: 'string', description: 'CSS-selector als alternatief voor ref.' },
         value: { type: 'string', description: 'Bij type: de tekst.' },
@@ -572,7 +572,7 @@ Met document {path} zet je een bestand van de gebruiker in het paneel: pdf, pres
         const study = require('./study');
         const abs = resolvePath(a.path, ctx.cwd);
         const sessionId = study.studySessionId(ctx.session) || ctx.session?.id;
-        const out = await study.openInPanel({ sessionId, file: abs, slide: a.slide, pdf: Boolean(a.pdf), panelRun: run });
+        const out = await study.openInPanel({ sessionId, file: abs, slide: a.slide, html: Boolean(a.html), panelRun: run });
         if (!out) {
           return { ok: false, text: `Kon "${a.path}" niet in het paneel zetten: het bestand bestaat niet of dit type kan niet worden weergegeven (pdf, pptx, docx, xlsx, csv, afbeelding en tekst werken).` };
         }
@@ -581,7 +581,7 @@ Met document {path} zet je een bestand van de gebruiker in het paneel: pdf, pres
         const lines = [`In het paneel geopend: ${out.title}${out.pages ? ` · ${out.pages} ${unit}` : ''}${a.slide ? ` · op ${a.slide}` : ''}`];
         if (out.note) lines.push(out.note);
         if (out.warning) lines.push(out.warning);
-        if (out.unrenderable) lines.push(`${out.unrenderable} formule(s) of diagram(men) in dit deck staan als wmf/emf en ontbreken in de diaweergave; gebruik {path, pdf:true} voor de echte dia's.`);
+        if (out.unrenderable) lines.push(`${out.unrenderable} formule(s) of diagram(men) in dit deck staan als wmf/emf en ontbreken in de tekstweergave; zonder {html:true} toont de app normaal de echte dia's.`);
         if (out.source) lines.push(`Als bron geregistreerd${out.source.items?.length ? ` met ${out.source.items.length} items om af te vinken` : ''} (leerstatus: ${out.state || 'study/state.json'}).`);
         if (out.error) lines.push(`Let op: ${out.error}`);
         return { text: lines.join('\n') };
