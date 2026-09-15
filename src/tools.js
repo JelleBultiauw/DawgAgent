@@ -540,15 +540,19 @@ const PANEL = [
   {
     name: 'paneel_browser',
     kind: 'browser-read',
-    dynamicKind: (a) => (['state', 'read'].includes(a.action || 'read') ? 'browser-read' : 'browser-act'),
+    dynamicKind: (a) => (['state', 'read', 'document'].includes(a.action || 'read') ? 'browser-read' : 'browser-act'),
     hideOnRun: false,
     description: `De browser die naast de chat in het zijpaneel van DawgAgent staat. Gebruik dit als de gebruiker "deze pagina", "mijn paneel", "de browser naast de chat" bedoelt, of om iets op te zoeken zonder de eigen Chrome van de gebruiker te verstoren. Het paneel opent automatisch. Gebruik dit ook om iets te tonen dat je voor de gebruiker bouwt of host: een lokale site of dev-server (http://localhost:POORT) hoort hier, niet in zijn eigen Chrome.
 
-Werkwijze: read (eenmalig) geeft de paginatekst plus genummerde elementen [1] [2] …; daarna click/type met die refs. Refs gelden tot de volgende read. Acties: ${'state · read · navigate · click · type · scroll · eval'}.`,
+Werkwijze: read (eenmalig) geeft de paginatekst plus genummerde elementen [1] [2] …; daarna click/type met die refs. Refs gelden tot de volgende read. Acties: ${'state · read · navigate · click · type · scroll · eval · document'}.
+Met document {path} zet je een bestand van de gebruiker in het paneel: pdf, presentatie (pptx), document (docx), spreadsheet, afbeelding of tekstbestand. Study gebruikt dit voor lesmateriaal — de dia's van een presentatie worden geteld als dekking. Met {path, slide:N} spring je naar dia/pagina N en met {path, pdf:true} exporteert de app een presentatie via PowerPoint naar pdf als de echte dia's (met formules) nodig zijn — dat opent PowerPoint even en duurt ongeveer een halve minuut.`,
     parameters: obj(
       {
-        action: { type: 'string', enum: ['state', 'read', 'navigate', 'click', 'type', 'scroll', 'eval'], description: 'state: url+titel · read: tekst+e elementen · navigate {url} · click {ref|selector} · type {ref|selector, value, submit} · scroll {amount} · eval {code}' },
+        action: { type: 'string', enum: ['state', 'read', 'navigate', 'click', 'type', 'scroll', 'eval', 'document'], description: 'state: url+titel · read: tekst+e elementen · navigate {url} · click {ref|selector} · type {ref|selector, value, submit} · scroll {amount} · eval {code} · document {path, slide?, pdf?}' },
         url: { type: 'string', description: 'Bij navigate.' },
+        path: { type: 'string', description: 'Bij document: pad naar het bestand dat in het paneel moet komen.' },
+        slide: { type: 'integer', description: 'Bij document: direct naar deze dia of pagina springen.' },
+        pdf: { type: 'boolean', description: 'Bij document met een presentatie: eerst via PowerPoint naar pdf exporteren (echte dia\'s, inclusief formules).' },
         ref: { type: 'integer', description: 'Genummerd element uit read, bv. 3.' },
         selector: { type: 'string', description: 'CSS-selector als alternatief voor ref.' },
         value: { type: 'string', description: 'Bij type: de tekst.' },
@@ -560,13 +564,67 @@ Werkwijze: read (eenmalig) geeft de paginatekst plus genummerde elementen [1] [2
       },
       ['action'],
     ),
-    summary: (a) => `paneel ${a.action || 'read'}${a.ref != null ? ` [${a.ref}]` : ''}${a.url ? ` ${short(a.url, 50)}` : ''}`,
+    summary: (a) => `paneel ${a.action || 'read'}${a.ref != null ? ` [${a.ref}]` : ''}${a.url ? ` ${short(a.url, 50)}` : ''}${a.path ? ` ${short(path.basename(String(a.path)), 40)}` : ''}`,
     detail: (a) => JSON.stringify(a, null, 1).slice(0, 2000),
     async run(a, ctx) {
       const { run } = require('./panel');
+      if ((a.action || '') === 'document') {
+        const study = require('./study');
+        const abs = resolvePath(a.path, ctx.cwd);
+        const sessionId = study.studySessionId(ctx.session) || ctx.session?.id;
+        const out = await study.openInPanel({ sessionId, file: abs, slide: a.slide, pdf: Boolean(a.pdf), panelRun: run });
+        if (!out) {
+          return { ok: false, text: `Kon "${a.path}" niet in het paneel zetten: het bestand bestaat niet of dit type kan niet worden weergegeven (pdf, pptx, docx, xlsx, csv, afbeelding en tekst werken).` };
+        }
+        if (out.unsupported) return { ok: false, text: out.unsupported };
+        const unit = out.kind === 'pdf' ? "pagina's" : 'dia’s';
+        const lines = [`In het paneel geopend: ${out.title}${out.pages ? ` · ${out.pages} ${unit}` : ''}${a.slide ? ` · op ${a.slide}` : ''}`];
+        if (out.note) lines.push(out.note);
+        if (out.warning) lines.push(out.warning);
+        if (out.unrenderable) lines.push(`${out.unrenderable} formule(s) of diagram(men) in dit deck staan als wmf/emf en ontbreken in de diaweergave; gebruik {path, pdf:true} voor de echte dia's.`);
+        if (out.source) lines.push(`Als bron geregistreerd${out.source.items?.length ? ` met ${out.source.items.length} items om af te vinken` : ''} (leerstatus: ${out.state || 'study/state.json'}).`);
+        if (out.error) lines.push(`Let op: ${out.error}`);
+        return { text: lines.join('\n') };
+      }
       const res = await run(a.action || 'read', a, 30000);
       if (res.error) return { ok: false, text: res.error };
       return { text: String(res.text || '(geen resultaat)') };
+    },
+  },
+];
+
+// ---------- leerstatus (Study-modus) ----------
+const STUDY = [
+  {
+    name: 'study_state',
+    kind: 'edit',
+    description: `De leerstatus van deze study-chat: bronnen met dekking per item (dia/pagina), concepten met mastery en due-datum, en foutpatronen. Gebruik {action:"lees"} om te zien wat er nog open staat en {action:"zet"} om bij te werken. De status blijft bewaard tussen sessies en gaat mee in de systeemprompt; hij is de bron van waarheid voor "niets overslaan".
+Dekking bijwerken: coverage:[{source:"Reeksen1.pptx", items:[{n:3,status:"geoefend"}]}] of kortweg {source:"…", done:[1,2], mastered:[3]}. Statussen: open, bezig, geoefend, beheerst.`,
+    parameters: obj(
+      {
+        action: { type: 'string', enum: ['lees', 'zet'], description: 'lees: huidige status · zet: status bijwerken (voegt samen).' },
+        sources: { type: 'array', description: 'Bij zet: bron(nen) toevoegen of bijwerken: [{name, path, kind, url}].', items: { type: 'object' } },
+        coverage: { type: 'array', description: 'Bij zet: dekking per bron: [{source, items:[{n,status,label}]}] of {source, done:[n], mastered:[n], open:[n]}.', items: { type: 'object' } },
+        concepts: { type: 'array', description: 'Bij zet: concepten: [{name, mastery:0-1, due:"2026-09-20", reps, lapses, note}].', items: { type: 'object' } },
+        misconceptions: { type: 'array', description: 'Bij zet: foutpatronen: [{concept, pattern, count}].', items: { type: 'object' } },
+        note: { type: 'string', description: 'Bij zet: korte logregel (wat is er deze beurt gebeurd).' },
+      },
+      ['action'],
+    ),
+    summary: (a) => `study_state ${a.action || 'lees'}`,
+    detail: (a) => JSON.stringify(a, null, 1).slice(0, 2000),
+    async run(a, ctx) {
+      const study = require('./study');
+      const sessionId = study.studySessionId(ctx.session) || ctx.session?.id;
+      if (!sessionId) return { ok: false, text: 'Geen chat gevonden voor deze leerstatus.' };
+      if ((a.action || 'lees') === 'lees') {
+        const state = study.loadState(sessionId);
+        const summary = study.stateSummary(state);
+        return { text: `${summary}\n\nBestand: ${study.statePath(sessionId)}${state.log?.length ? `\nLaatste logregels:\n${state.log.slice(-3).map((l) => `- ${String(l.ts).slice(0, 16)} ${l.note}`).join('\n')}` : ''}` };
+      }
+      const { state, notes } = study.applyStatePatch(sessionId, a);
+      const summary = study.stateSummary(state);
+      return { text: `${notes.length ? `${notes.join('\n')}\n\n` : ''}${summary}\n\nBijgewerkt: ${study.statePath(sessionId)}` };
     },
   },
 ];
@@ -715,7 +773,7 @@ function normalizeSchema(schema) {
 }
 
 function buildTools({ cfg, connectors }) {
-  const tools = [...CORE, ...PANEL];
+  const tools = [...CORE, ...PANEL, ...STUDY];
   if (cfg.browser !== false) tools.push(...BROWSER);
   if (cfg.computerUse) tools.push(...COMPUTER);
   for (const def of connectors.toolDefs()) {

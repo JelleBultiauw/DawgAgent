@@ -199,6 +199,41 @@ export default {
     'eenmalig': 'once',
     'Lokaal commando': 'Local command',
 
+    // ---------- study ----------
+    'Study-modus': 'Study mode',
+    'Proeftoets': 'Mock exam',
+    'Gewone chat: vragen en antwoorden.': 'Normal chat: questions and answers.',
+    'Tutor: pittige vragen op examenniveau, nooit het antwoord, niets overgeslagen van je slides.':
+      'Tutor: hard exam-level questions, never the answer, nothing skipped from your slides.',
+    'Examenmodus: alleen toetsen, geen hints, daarna een streng rapport.': 'Exam mode: testing only, no hints, then a strict report.',
+    'Study aanzetten: DawgAgent stelt pittige vragen op examenniveau, geeft nooit het antwoord en slaat niets over van je slides':
+      'Turn on Study: DawgAgent asks hard exam-level questions, never gives the answer and skips nothing from your slides',
+    'Study staat aan: pittige vragen, nooit het antwoord, niets overgeslagen · klik om te wisselen':
+      'Study is on: hard questions, never the answer, nothing skipped · click to switch',
+    'Proeftoets staat aan: toetsen zonder hints · klik om te wisselen': 'Mock exam is on: testing without hints · click to switch',
+    'Study: leer met pittige vragen, niets overgeslagen': 'Study: learn with hard questions, nothing skipped',
+    'Study: sleep je slides of cursus hierheen, of vraag om een vraag over de stof…':
+      'Study: drop your slides or course material here, or ask for a question about the material…',
+    'Proeftoets: laat je overhoren uit je hoofd — antwoorden komen pas in het rapport…':
+      'Mock exam: get quizzed from memory — answers only come in the report…',
+    'Wat Study doet': 'What Study does',
+    'Pittige vragen, nooit het antwoord, dekking van al je slides · uitleg': 'Hard questions, never the answer, coverage of all your slides · explanation',
+    'Hoe Study werkt': 'How Study works',
+    'DawgAgent is je tutor: hij stelt pittige vragen op examenniveau en laat jou het werk doen.':
+      'DawgAgent is your tutor: it asks hard exam-level questions and makes you do the work.',
+    'Het antwoord krijg je niet — wel hints in stapjes, en pas na een echte poging.':
+      'You do not get the answer — you get step-by-step hints, and only after a real attempt.',
+    'Je slides, cursus of notities gaan mee: elke dia wordt als dekking geteld en komt minstens één keer als vraag terug. Wat nog openstaat zie je in het Taken-paneel en in zijn dekkingrapport.':
+      'Your slides, course or notes count: every slide is tracked as coverage and comes back as a question at least once. What is still open shows in the Tasks panel and in its coverage report.',
+    'Sleep je materiaal in de chat (bv. een PowerPoint): het opent meteen in het zijpaneel zodat je kunt meelezen.':
+      'Drop your material into the chat (a PowerPoint, say): it opens right away in the side panel so you can read along.',
+    'Foutpatronen en wat je al beheerst blijven bewaard in de leerstatus van deze chat, zodat herhaling op de juiste momenten terugkomt.':
+      "Error patterns and what you already master are kept in this chat's study state, so reviews come back at the right moments.",
+    'Begrepen': 'Got it',
+    'Study uit': 'Study off',
+    'Study aan': 'Study on',
+    'Proeftoets aan': 'Mock exam on',
+
     // ---------- modellen ----------
     'DeepSeek Flash': 'DeepSeek Flash',
     'DeepSeek V4 Pro': 'DeepSeek V4 Pro',
@@ -678,6 +713,14 @@ export default {
 
   // Teksten met wisselende stukken erin: [regex, vervanging]
   patterns: [
+    [/^Study aan — pittige vragen, niets overgeslagen(.*)$/, 'Study on — hard questions, nothing skipped$1'],
+    [/^Proeftoets aan — geen hints, alleen toetsen(.*)$/, 'Mock exam on — no hints, testing only$1'],
+    [/^(.+?) staat in het paneel(.*)$/, '$1 is in the side panel$2'],
+    [/^(.+?) is geopend in het paneel(.*)$/, '$1 is open in the side panel$2'],
+    [/dia's/, 'slides'],
+    [/pagina's/, 'pages'],
+    [/tabblad\(en\)/, 'sheet(s)'],
+    [/formule\(s\) niet zichtbaar in de diaweergave/, 'formula(e) not visible in the slide view'],
     [/^(\d+) bestanden gepusht naar GitHub$/, '$1 files pushed to GitHub'],
     [/^(\d+) bestand gepusht naar GitHub$/, '$1 file pushed to GitHub'],
     [/^(\d+) bestanden toegevoegd$/, '$1 files added'],

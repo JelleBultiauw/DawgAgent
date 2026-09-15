@@ -41,6 +41,7 @@ const skills = require('./skills');
 const snapshots = require('./snapshots');
 const computer = require('./computer');
 const attachments = require('./attachments');
+const study = require('./study');
 const { bridge, syncExtension, EXT_DIR } = require('./browser');
 const { Connectors, parseServersJson } = require('./mcp');
 const { Terminals, ensureTermHelper } = require('./term');
@@ -465,6 +466,34 @@ handle('sessions:setWorkspace', (id, dir) => {
   return dir;
 });
 
+// Study-modus per chat: 'off' | 'study' | 'test' (proeftoets).
+handle('sessions:setStudy', async (id, mode) => {
+  const next = study.MODES.includes(mode) ? mode : 'off';
+  const s = agent.live(id) || store.loadSession(id);
+  if (!s) throw new Error(i18n.t('Chat niet gevonden.'));
+  s.study = next;
+  store.saveSession(s);
+  let opened = null;
+  if (next !== 'off') {
+    // Staat er al materiaal in deze chat? Zet het meteen in het zijpaneel.
+    const file = study.latestDocument(s);
+    if (file) opened = await study.openInPanel({ sessionId: id, file, panelRun: (op, args) => panel.run(op, args, 40000) });
+  }
+  return { mode: next, opened };
+});
+
+// Lesmateriaal dat in een study-chat wordt toegevoegd, gaat direct naar het paneel.
+async function openStudyMaterial(sessionId, atts) {
+  const s = store.loadSession(sessionId);
+  if (!s || study.modeFor(s) === 'off') return atts;
+  const doc = (atts || []).find((a) => a?.path && a.kind !== 'folder' && study.isViewable(a.path));
+  if (!doc) return atts;
+  const out = await study.openInPanel({ sessionId, file: doc.path, panelRun: (op, args) => panel.run(op, args, 40000) });
+  if (out && !out.unsupported) doc.panel = { title: out.title, url: out.url, pages: out.pages || null, kind: out.kind, unrenderable: out.unrenderable || 0, warning: out.warning || null };
+  else if (out?.unsupported) doc.panel = { error: out.unsupported };
+  return atts;
+}
+
 handle('chat:send', async (payload) => {
   const s = store.loadSession(payload.sessionId);
   if (s && !s.parentId) activeSessionId = payload.sessionId;
@@ -500,17 +529,20 @@ handle('attach:pick', async (sessionId, kind) => {
   const r = await dialog.showOpenDialog(win, opts);
   if (r.canceled) return [];
   const dir = store.filesDir(sessionId);
-  return Promise.all(r.filePaths.map((p) => attachments.processPath(p, dir)));
+  const atts = await Promise.all(r.filePaths.map((p) => attachments.processPath(p, dir)));
+  return openStudyMaterial(sessionId, atts);
 });
-handle('attach:paths', (sessionId, paths) => {
+handle('attach:paths', async (sessionId, paths) => {
   const dir = store.filesDir(sessionId);
-  return Promise.all(paths.map((p) => attachments.processPath(p, dir)));
+  const atts = await Promise.all(paths.map((p) => attachments.processPath(p, dir)));
+  return openStudyMaterial(sessionId, atts);
 });
-handle('attach:data', (sessionId, name, base64) => {
+handle('attach:data', async (sessionId, name, base64) => {
   const dir = store.filesDir(sessionId);
   const file = path.join(dir, `${Date.now()}-${path.basename(name || 'plakken.png')}`);
   fs.writeFileSync(file, Buffer.from(base64, 'base64'));
-  return attachments.processPath(file, dir);
+  const att = await attachments.processPath(file, dir);
+  return openStudyMaterial(sessionId, [att]);
 });
 
 handle('skills:list', () => skills.listSkills());

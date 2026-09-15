@@ -9,6 +9,7 @@ Je eigen agent-app op DeepSeek — vergelijkbaar met Claude Code of Codex, maar 
 - **Computer use**: DawgAgent ziet je scherm (screenshot + tekstherkenning) en bedient muis en toetsenbord. Noodstop: **⌘⇧⎋**.
 - **Browser (Chrome-extensie)**: DawgAgent leest en bedient je eigen Chrome-tabs via de extensie in `browser-extension/`. Hij krijgt paginatekst en een genummerde lijst met knoppen en velden in plaats van screenshots — zuiniger met tokens en preciezer. Zeg bijvoorbeeld: *"gebruik de browser extensie en zoek …"*.
 - **Zijpaneel** (⌘⇧B): vier tabbladen naast de chat — een **zijchat** die de context van de chat deelt (vraag daar om extra uitleg over iets uit het gesprek, zonder de hoofdchat te vervuilen), de **takenlijst** met de voortgang (met een schakelaar om DawgAgent bij elke opdracht zelf een lijst te laten bijhouden), een eigen **browser** (die DawgAgent ook kan lezen en bedienen via de tool `paneel_browser`) en een **terminal** met een echte shell in je werkmap.
+- **Study** (keuzemenu onder het invoerveld): DawgAgent wordt je tutor in plaats van je antwoordenmachine. Hij stelt pittige vragen op examenniveau, geeft nooit het eindantwoord (alleen hints in stapjes, na een echte poging), en houdt per dia of sectie bij wat je al gedaan hebt — niets uit je slides of cursus wordt overgeslagen. Sleep je materiaal in de chat: het opent meteen in het zijpaneel (pdf, PowerPoint, Word, spreadsheet, afbeelding) en de dia's tellen als dekking. `Proeftoets` is de examenstand: alleen toetsen, geen hints, daarna een streng rapport.
 - **Zelf-aanpassing**: vraag DawgAgent om zichzelf te verbeteren (“voeg een donkere modus-knop toe”). Vóór elke wijziging wordt een back-up gemaakt.
 
 ## Starten
@@ -34,6 +35,7 @@ Bij de eerste start plak je je DeepSeek API-sleutel (aan te maken op platform.de
 | Werkmap kiezen | map-knop onder het invoerveld |
 | Goedkeuring | *Vraag eerst* · *Auto-bewerken* (standaard) · *Volledig automatisch* |
 | Model & nadenken | rechtsonder in het invoerveld (Flash ziet afbeeldingen) |
+| Study / Proeftoets | keuzemenu in het invoerveld (naast de goedkeuringsknop) |
 | Computer use aan/uit | monitor-knop onder het invoerveld |
 | Skills, Connectors, Instellingen | zijbalk |
 | Zijpaneel (zijchat · taken · browser · terminal) | knop in de zijbalk, of ⌘⇧B |

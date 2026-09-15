@@ -7,6 +7,7 @@
 
 /* BloxCode is een schakelaar per chat (chip naast Computer use), geen aparte ruimte meer. */
 .chat-item .chat-kind { display: flex; flex: none; color: #00a2ff; }
+.chat-item .chat-kind.study { color: var(--accent); }
 .chip.blox-chip .ic { color: #00a2ff; }
 .chip.blox-chip.on { color: #00a2ff; background: color-mix(in srgb, #00a2ff 14%, transparent); }
 .chip.blox-chip:disabled { opacity: 0.5; }

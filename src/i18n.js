@@ -45,6 +45,21 @@ const MAIN_STRINGS = {
     'Deze repo bestaat nog niet op GitHub.': 'This repo does not exist on GitHub yet.',
     'Gebruiker heeft geannuleerd.': 'The user cancelled.',
     'Geannuleerd.': 'Cancelled.',
+    // Study: teksten in de gegenereerde bronweergave (zijpaneel).
+    "dia's": 'slides',
+    'tabblad(en)': 'sheet(s)',
+    'Study telt deze dia’s als dekking — niets wordt overgeslagen': 'Study counts these slides as coverage — nothing gets skipped',
+    'Study gebruikt deze tabel als bron': 'Study uses this table as a source',
+    'Study gebruikt dit bestand als bron': 'Study uses this file as a source',
+    'Notities': 'Notes',
+    'Geen tekst op deze dia.': 'No text on this slide.',
+    'Let op:': 'Note:',
+    'formule(s) of diagram(men) staan als wmf/emf en zijn hier niet zichtbaar. Vraag DawgAgent het deck als pdf te openen (via PowerPoint) voor de volledige weergave.':
+      'formula(e) or diagram(s) are stored as wmf/emf and are not visible here. Ask DawgAgent to open the deck as pdf (via PowerPoint) for the full view.',
+    '(leeg document)': '(empty document)',
+    'document': 'document',
+    'tekstbestand': 'text file',
+    'Kon dit document niet lezen:': 'Could not read this document:',
   },
 };
 

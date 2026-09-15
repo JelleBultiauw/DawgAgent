@@ -324,6 +324,20 @@ const MODES = {
   edits: { label: 'Auto-bewerken', icon: 'pencil', desc: 'Bestanden bewerken mag direct; commando’s en computeracties eerst vragen.' },
   auto: { label: 'Volledig automatisch', icon: 'zap', desc: () => `Alles zonder te vragen. Alleen gebruiken als je DawgAgent vertrouwt met de taak.` },
 };
+// Study-stand van deze chat: uit, Study (tutor) of Proeftoets (examenmodus).
+const STUDY_MODES = {
+  off: { label: 'Study', icon: 'bulb', desc: 'Gewone chat: vragen en antwoorden.' },
+  study: {
+    label: 'Study',
+    icon: 'bulb',
+    desc: 'Tutor: pittige vragen op examenniveau, nooit het antwoord, niets overgeslagen van je slides.',
+  },
+  test: {
+    label: 'Proeftoets',
+    icon: 'list',
+    desc: 'Examenmodus: alleen toetsen, geen hints, daarna een streng rapport.',
+  },
+};
 const MODELS = [
   { id: 'deepseek-flash', label: 'DeepSeek Flash', desc: 'V4.1 · snel, goedkoop, ziet afbeeldingen', vision: true },
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', desc: 'Groot model · geen afbeeldingen', vision: false },
@@ -574,11 +588,15 @@ function renderSessionList() {
     for (const s of items) {
       used.add(s.id);
       const active = state.view === 'chat' && state.session?.id === s.id;
+      const badges = [
+        s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
+        s.study ? h('span', { class: 'chat-kind study', title: s.study === 'test' ? 'Proeftoets staat aan in deze chat' : 'Study staat aan in deze chat' }, icon('bulb', 12)) : null,
+      ].filter(Boolean);
       list.append(
         h(
           'div',
-          { class: `chat-item ${active ? 'active' : ''}`, onclick: () => openSession(s.id), title: s.kind === 'blox' ? `${s.title} · BloxCode` : s.title },
-          s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
+          { class: `chat-item ${active ? 'active' : ''}`, onclick: () => openSession(s.id), title: `${s.title}${s.kind === 'blox' ? ' · BloxCode' : ''}${s.study ? (s.study === 'test' ? ' · Proeftoets' : ' · Study') : ''}` },
+          ...badges,
           s.running ? h('span', { class: 'run-dot' }) : null,
           h('span', { class: 'chat-title' }, s.title || 'Chat'),
           h(
@@ -614,11 +632,18 @@ async function newChat() {
   closeMenu();
   const cur = state.session;
   const wantBlox = cur?.kind === 'blox';
+  const wantStudy = cur?.study || 'off'; // de leerstand gaat mee naar de nieuwe chat
   if (cur && !cur.messages.length && !cur.running) {
     state.pending = [];
   } else {
     state.session = await call('sessions:new', state.cfg.workspace);
     if (wantBlox) state.session = await call('blox:setSession', state.session.id, true);
+    if (wantStudy !== 'off') {
+      try {
+        const res = await call('sessions:setStudy', state.session.id, wantStudy);
+        state.session.study = res?.mode || wantStudy;
+      } catch {}
+    }
     state.pending = [];
   }
   state.live = null;
@@ -1276,13 +1301,31 @@ function renderComposer() {
   $('#btn-attach').textContent = '';
   $('#btn-attach').append(icon('plus', 17));
   const isBlox = Boolean(state.session?.kind === 'blox' && blox);
+  const studyMode = STUDY_MODES[s?.study || 'off'] || STUDY_MODES.off;
+  $('#chip-study').hidden = isBlox;
+  chip($('#chip-study'), studyMode.icon, studyMode.label, (s?.study || 'off') !== 'off');
+  $('#chip-study').className = `chip study-chip${(s?.study || 'off') !== 'off' ? ' on' : ''}`;
+  $('#chip-study').append(icon('down', 12));
+  $('#chip-study').disabled = Boolean(s?.running);
+  $('#chip-study').title =
+    (s?.study || 'off') === 'off'
+      ? 'Study aanzetten: DawgAgent stelt pittige vragen op examenniveau, geeft nooit het antwoord en slaat niets over van je slides'
+      : s.study === 'test'
+        ? 'Proeftoets staat aan: toetsen zonder hints · klik om te wisselen'
+        : 'Study staat aan: pittige vragen, nooit het antwoord, niets overgeslagen · klik om te wisselen';
   $('#chip-computer').hidden = isBlox;
   chip($('#chip-blox'), 'cube', isBlox ? 'BloxCode aan' : 'BloxCode', isBlox);
   $('#chip-blox').title = isBlox
     ? `BloxCode staat aan in deze chat — klik om uit te zetten${blox.state.status?.studioName ? ` · ${blox.state.status.studioName}` : ''}`
     : 'BloxCode aanzetten: je Roblox-developer die rechtstreeks in Studio bouwt, script en test';
   $('#chip-blox').disabled = Boolean(s?.running);
-  input().placeholder = isBlox ? "Vraag BloxCode iets, typ / voor commando's, of sleep een foto hierheen…" : `Vraag DawgAgent iets, of sleep bestanden hierheen…`;
+  input().placeholder = isBlox
+    ? "Vraag BloxCode iets, typ / voor commando's, of sleep een foto hierheen…"
+    : (s?.study || 'off') === 'off'
+      ? `Vraag DawgAgent iets, of sleep bestanden hierheen…`
+      : s.study === 'test'
+        ? 'Proeftoets: laat je overhoren uit je hoofd — antwoorden komen pas in het rapport…'
+        : 'Study: sleep je slides of cursus hierheen, of vraag om een vraag over de stof…';
   if (isBlox) {
     // BloxCode: de werkmap-chip wordt de Studio-kiezer, de modus-chip plan/vragen/veilig auto/alles auto.
     const c = blox.composerChips();
@@ -1337,6 +1380,15 @@ async function addAttachments(promise) {
   try {
     const atts = await promise;
     state.pending.splice(state.pending.indexOf(placeholder), 1, ...(atts || []));
+    for (const a of atts || []) {
+      if (a?.panel?.error) toast(a.panel.error, 'error');
+      else if (a?.panel?.title) {
+        const unit = a.panel.kind === 'pdf' ? "pagina's" : "dia's";
+        const extra = a.panel.pages ? ` · ${a.panel.pages} ${unit}` : '';
+        const warn = a.panel.unrenderable ? ` · ${a.panel.unrenderable} formule(s) niet zichtbaar in de diaweergave` : '';
+        toast(`${a.panel.title} staat in het paneel${extra}${warn}`, 'success');
+      }
+    }
   } catch (e) {
     state.pending = state.pending.filter((x) => x !== placeholder);
     toast(e.message, 'error');
@@ -1402,6 +1454,69 @@ function modeMenu(anchor) {
       checked: state.cfg.approval === id,
       action: () => saveCfg({ approval: id }),
     })),
+  );
+}
+
+// Study: de leerstand van deze chat (blijft bij de chat bewaard).
+function studyMenu(anchor) {
+  const current = state.session?.study || 'off';
+  openMenu(
+    anchor,
+    [
+      { header: true, label: 'Study-modus' },
+      ...Object.entries(STUDY_MODES).map(([id, m]) => ({
+        label: id === 'off' ? 'Uit' : m.label,
+        icon: m.icon,
+        desc: m.desc,
+        checked: current === id,
+        action: () => setStudy(id),
+      })),
+      '-',
+      { label: 'Wat Study doet', icon: 'bulb', desc: 'Pittige vragen, nooit het antwoord, dekking van al je slides · uitleg', action: studyExplain },
+    ],
+    { align: 'left' },
+  );
+}
+
+async function setStudy(id) {
+  const s = state.session;
+  if (!s) return;
+  try {
+    const res = await call('sessions:setStudy', s.id, id);
+    s.study = res?.mode || 'off';
+    renderComposer();
+    if (s.study === 'off') toast('Study uit');
+    else {
+      const opened = res?.opened?.title ? ` · ${res.opened.title} staat in het paneel` : '';
+      toast(s.study === 'test' ? `Proeftoets aan — geen hints, alleen toetsen${opened}` : `Study aan — pittige vragen, niets overgeslagen${opened}`, 'success');
+      if (!state.panel.open) panelToggle(true, 'browser');
+    }
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function studyExplain() {
+  openModal(
+    h(
+      'div',
+      {},
+      h('h2', {}, 'Hoe Study werkt'),
+      h(
+        'ul',
+        { class: 'lead' },
+        h('li', {}, 'DawgAgent is je tutor: hij stelt pittige vragen op examenniveau en laat jou het werk doen.'),
+        h('li', {}, 'Het antwoord krijg je niet — wel hints in stapjes, en pas na een echte poging.'),
+        h('li', {}, 'Je slides, cursus of notities gaan mee: elke dia wordt als dekking geteld en komt minstens één keer als vraag terug. Wat nog openstaat zie je in het Taken-paneel en in zijn dekkingrapport.'),
+        h('li', {}, 'Sleep je materiaal in de chat (bv. een PowerPoint): het opent meteen in het zijpaneel zodat je kunt meelezen.'),
+        h('li', {}, 'Foutpatronen en wat je al beheerst blijven bewaard in de leerstatus van deze chat, zodat herhaling op de juiste momenten terugkomt.'),
+      ),
+      h(
+        'div',
+        { class: 'modal-actions' },
+        h('button', { class: 'btn primary', onclick: () => closeModal() }, 'Begrepen'),
+      ),
+    ),
   );
 }
 
@@ -2996,6 +3111,7 @@ function bindUI() {
   $('#btn-attach').addEventListener('click', (e) => attachMenu(e.currentTarget));
   $('#chip-workspace').addEventListener('click', (e) => (state.session?.kind === 'blox' ? blox.studioMenu(e.currentTarget) : pickWorkspace()));
   $('#chip-mode').addEventListener('click', (e) => (state.session?.kind === 'blox' ? blox.modeMenu(e.currentTarget) : modeMenu(e.currentTarget)));
+  $('#chip-study').addEventListener('click', (e) => studyMenu(e.currentTarget));
   $('#chip-blox').addEventListener('click', () => toggleBlox());
   $('#btn-blox').addEventListener('click', () => toggleBlox());
   $('#btn-git').addEventListener('click', () => git.openSyncModal());

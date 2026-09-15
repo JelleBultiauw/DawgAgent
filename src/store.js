@@ -129,6 +129,7 @@ function saveSession(s) {
   const rec = { id: s.id, title: s.title, updated: s.updated, workspace: s.workspace, count: s.messages.length };
   if (s.parentId) rec.parentId = s.parentId; // zijchat: hoort bij de chat in het hoofdvenster
   if (s.kind) rec.kind = s.kind; // 'blox' = BloxCode staat aan in deze chat
+  if (s.study && s.study !== 'off') rec.study = s.study; // 'study' | 'test' = study-modus in deze chat
   index[s.id] = rec;
   saveIndex();
 }

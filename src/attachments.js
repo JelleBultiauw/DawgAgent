@@ -11,6 +11,7 @@ const execFileP = promisify(execFile);
 const IMAGE_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tif', '.tiff'];
 const SHEET_EXT = ['.xlsx', '.xls', '.xlsm', '.xlsb', '.ods', '.csv', '.tsv', '.numbers'];
 const DOC_EXT = ['.docx', '.doc', '.rtf', '.odt', '.html', '.htm', '.webarchive'];
+const PRESENTATION_EXT = ['.pptx', '.ppt'];
 const SKIP_DIRS = new Set(['node_modules', '.git', '.venv', 'venv', '__pycache__', '.next', 'dist', 'build', '.DS_Store']);
 const MAX_TEXT = 40000;
 
@@ -19,6 +20,7 @@ function kindOf(p) {
   if (IMAGE_EXT.includes(ext)) return 'image';
   if (SHEET_EXT.includes(ext)) return 'sheet';
   if (ext === '.pdf') return 'pdf';
+  if (PRESENTATION_EXT.includes(ext)) return 'presentation';
   if (DOC_EXT.includes(ext)) return 'doc';
   return 'file';
 }
@@ -120,9 +122,24 @@ async function extractText(p) {
   const kind = kindOf(p);
   if (kind === 'sheet') return sheetToText(p);
   if (kind === 'pdf') return (await pdfText(p)) || '(Geen tekst gevonden — mogelijk een gescande PDF.)';
+  if (kind === 'presentation') return presentationText(p);
   if (kind === 'doc') return docText(p);
   if (isTextFile(p)) return fs.readFileSync(p, 'utf8');
   return null;
+}
+
+// Presentaties: alle dia's met hun tekst en notities. Study gebruikt dit als
+// volledige inhoudsopgave, zodat er geen dia wordt overgeslagen.
+function presentationText(p) {
+  const ext = path.extname(p).toLowerCase();
+  if (ext !== '.pptx') {
+    return '(Oud .ppt-formaat — niet uit te lezen. Vraag de gebruiker het als .pptx of pdf op te slaan, of open het in het paneel via PowerPoint.)';
+  }
+  try {
+    return require('./study').slidesText(p);
+  } catch (e) {
+    return `(Kon de presentatie niet uitlezen: ${e.message})`;
+  }
 }
 
 async function processPath(src, filesDir) {
@@ -140,7 +157,7 @@ async function processPath(src, filesDir) {
       att.apiPath = await prepareImage(dest, filesDir);
     } else {
       const text = await extractText(dest);
-      if (text != null) Object.assign(att, clip(text));
+      if (text != null) Object.assign(att, clip(text, kind === 'presentation' ? 60000 : MAX_TEXT));
       else att.text = '(Binair bestand — gebruik tools zoals run_shell om het te inspecteren.)';
     }
   } catch (e) {
