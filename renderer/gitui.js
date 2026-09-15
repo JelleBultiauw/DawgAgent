@@ -8,6 +8,9 @@ export function createGit(ctx) {
     activity: null,
     messages: {}, // commitnaam per project (wat de gebruiker typt)
     expanded: {}, // bestandslijst open/dicht per project
+    repoExists: null, // per project: bestaat de repo op GitHub?
+    repos: null, // repo's van je account (voor het beheer-venster)
+    scopeNeeded: false, // GitHub vraagt extra toestemming om te mogen verwijderen
     busy: false,
     body: null, // inhoud van het sync-venster, zodat we opnieuw kunnen tekenen
   };
@@ -135,6 +138,7 @@ export function createGit(ctx) {
     const footer = h('div', { class: 'git-actions' });
     footer.append(
       btn('Alles pushen', 'primary', () => pushAll(), 'up'),
+      btn("Repo's beheren", 'ghost', () => reposModal(), 'github'),
       btn('Project toevoegen', 'ghost', (e) => addProjectMenu(e.currentTarget), 'plus'),
       btn('Activiteit', 'ghost', () => activityModal(), 'history'),
       btn('Sluiten', 'ghost', closeModal),
@@ -152,6 +156,13 @@ export function createGit(ctx) {
     );
     refresh();
     renderBody();
+    // Even op de achtergrond kijken of de repo's echt bestaan op GitHub.
+    call('git:checkRepos')
+      .then((res) => {
+        G.repoExists = res || {};
+        renderBody();
+      })
+      .catch(() => {});
   }
 
   function renderBody() {
@@ -256,6 +267,20 @@ export function createGit(ctx) {
     }
     card.append(stats);
 
+    // Bestaat de repo op GitHub? (eenmalige controle als het venster opengaat)
+    const exists = G.repoExists ? G.repoExists[p.id] : null;
+    if (p.repo && exists === false) {
+      card.append(
+        h(
+          'div',
+          { class: 'git-warn' },
+          h('b', {}, 'Deze repo bestaat nog niet op GitHub. '),
+          'De push hierboven faalt zolang hij niet bestaat — maak hem in één klik aan (privé) en push meteen.',
+          h('div', { style: 'margin-top:8px' }, btn('Repo aanmaken en pushen', '', () => createRepo(p.id), 'github')),
+        ),
+      );
+    }
+
     if (p.dirty && p.changes.length) card.append(fileList(p.changes, p.id));
 
     // Geheimen en grote bestanden.
@@ -278,11 +303,11 @@ export function createGit(ctx) {
     // Commitnaam + pushen.
     if (p.dirty) card.append(commitInput);
     const actions = h('div', { class: 'git-actions' });
-    if (p.exists) actions.append(btn(p.dirty ? 'Push' : 'Push', 'primary', () => pushProject(p.id), 'up'));
-    if (p.exists && !p.remote) {
-      if (G.status?.gh?.authed) actions.append(btn('Repo aanmaken', '', () => createRepo(p.id), 'github'));
-      else actions.append(btn('Inloggen met GitHub', 'ghost', () => login(), 'github'));
+    if (p.exists) actions.append(btn('Push', 'primary', () => pushProject(p.id), 'up'));
+    if (p.exists && (!p.remote || exists === false)) {
+      actions.append(btn(exists === false ? 'Repo aanmaken' : 'Repo aanmaken', '', () => createRepo(p.id), 'github'));
     }
+    if (p.exists) actions.append(btn('Kies repo…', 'ghost', (e) => pickRepoMenu(e.currentTarget, p), 'list'));
     if (p.remote) {
       actions.append(
         btn('Openen op GitHub', 'ghost', () => call('app:openExternal', String(p.remote).replace(/^git@github\.com:/, 'https://github.com/').replace(/\.git$/, '')), 'external'),
@@ -290,6 +315,36 @@ export function createGit(ctx) {
     }
     card.append(actions);
     return card;
+  }
+
+  // Bestaande repo's van jouw account kiezen voor dit project.
+  async function pickRepoMenu(anchor, p) {
+    let list = G.repos;
+    if (!list) {
+      try {
+        const r = await call('git:listRepos');
+        G.repos = r.repos || [];
+        list = G.repos;
+      } catch (e) {
+        return toast(e.message, 'error');
+      }
+    }
+    const items = [{ header: true, label: `${list.length} repo's van je account` }];
+    for (const r of list.slice(0, 40)) {
+      items.push({
+        label: r.nameWithOwner,
+        desc: `${r.isPrivate ? 'privé' : 'publiek'}${r.primaryLanguage?.name ? ` · ${r.primaryLanguage.name}` : ''}${r.description ? ` · ${r.description.slice(0, 40)}` : ''}`,
+        icon: 'github',
+        checked: p.repo?.includes(`/${r.name}.git`),
+        action: async () => {
+          const res = await call('git:linkRepo', p.id, `git@github.com:${r.nameWithOwner}.git`);
+          toast(res.ok ? `Gekoppeld aan ${r.nameWithOwner}` : res.error || 'Gekoppeld', res.ok ? '' : 'error');
+          await refresh();
+        },
+      });
+    }
+    items.push('-', { label: "Repo's beheren…", icon: 'git', action: () => reposModal() });
+    openMenu(anchor, items, { align: 'left' });
   }
 
   // ---------- acties ----------
@@ -307,10 +362,15 @@ export function createGit(ctx) {
       const r = await call('git:push', id, { message: G.messages[id] || '' });
       if (r.nothing) toast('Geen wijzigingen om te pushen.');
       else if (r.blocked) toast(`Niets gepusht: geheimen gevonden in ${r.secrets.block.map((s) => s.file).join(', ')}`, 'error');
-      else if (!r.ok) toast(r.error || 'Push mislukt', 'error');
-      else {
+      else if (!r.ok) {
+        if (r.missingRepo) {
+          G.repoExists = { ...(G.repoExists || {}), [id]: false };
+          toast('De repo bestaat nog niet op GitHub — klik op "Repo aanmaken".', 'error');
+        } else toast(r.error || 'Push mislukt', 'error');
+      } else {
         toast(`Gepusht${r.sha ? ` · ${r.sha}` : ''} — ${r.files.length} bestand${r.files.length === 1 ? '' : 'en'}${r.pushed ? '' : ' (nog geen repo-URL: alleen commit)'}`);
         delete G.messages[id];
+        if (r.pushed) G.repoExists = { ...(G.repoExists || {}), [id]: true };
       }
     } catch (e) {
       toast(e.message, 'error');
@@ -345,11 +405,16 @@ export function createGit(ctx) {
   async function createRepo(id) {
     if (G.busy) return;
     G.busy = true;
-    toast('Privé-repo aanmaken op GitHub…');
+    toast('Privé-repo aanmaken op GitHub en pushen…');
     try {
       const r = await call('git:createRepo', id);
       if (r.blocked) toast(`Niets gepusht: geheimen gevonden in ${r.secrets.block.map((s) => s.file).join(', ')}`, 'error');
-      else toast(`Repo aangemaakt: ${r.url}`);
+      else if (r.ok === false && r.error) toast(r.error, 'error');
+      else {
+        toast(`Repo klaar: ${r.url}`);
+        G.repoExists = { ...(G.repoExists || {}), [id]: true };
+        G.repos = null;
+      }
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -390,6 +455,186 @@ export function createGit(ctx) {
       toast('Project toegevoegd');
     } });
     openMenu(anchor, items, { align: 'left' });
+  }
+
+  // ---------- repo's beheren ----------
+  async function reposModal() {
+    const listBox = h('div', { class: 'cards blox-list' }, h('div', { class: 'empty-card' }, 'Repo\u2019s ophalen…'));
+    const notice = h('div', {});
+    const search = h('input', { class: 'input', placeholder: 'Zoek in je repo\u2019s…' });
+    let repos = [];
+    let query = '';
+    search.addEventListener('input', () => {
+      query = search.value.trim().toLowerCase();
+      renderList();
+    });
+
+    const load = async () => {
+      listBox.textContent = '';
+      listBox.append(h('div', { class: 'empty-card' }, 'Repo\u2019s ophalen…'));
+      try {
+        const r = await call('git:listRepos');
+        G.repos = r.repos || [];
+        repos = G.repos;
+      } catch (e) {
+        listBox.textContent = '';
+        listBox.append(h('div', { class: 'git-warn' }, e.message));
+        return;
+      }
+      renderList();
+    };
+
+    function renderList() {
+      listBox.textContent = '';
+      const shown = repos.filter((r) => !query || r.nameWithOwner.toLowerCase().includes(query) || (r.description || '').toLowerCase().includes(query));
+      if (!shown.length) listBox.append(h('div', { class: 'empty-card' }, repos.length ? 'Geen repo gevonden met die zoekterm.' : 'Nog geen repo\u2019s. Maak er een van een map hierboven.'));
+      for (const r of shown) listBox.append(repoRow(r));
+      // Extra toestemming nodig om te verwijderen?
+      notice.textContent = '';
+      if (G.scopeNeeded) {
+        notice.append(
+          h(
+            'div',
+            { class: 'git-warn', style: 'margin-bottom:12px' },
+            h('b', {}, 'Verwijderen vraagt één keer extra toestemming van GitHub. '),
+            'Geef die hier; daarna kun je repo\u2019s gewoon met twee klikken wissen.',
+            h('div', { style: 'margin-top:8px' }, btn('Toestemming geven', '', () => authRefresh(), 'key')),
+          ),
+        );
+      }
+    }
+
+    function repoRow(r) {
+      const linked = (G.status?.projects || []).filter((p) => p.repo && p.repo.includes(`/${r.name}.git`));
+      const row = h('div', { class: 'card git-repo' });
+      row.append(
+        h(
+          'div',
+          { class: 'git-repo-main' },
+          h('div', { class: 'git-repo-name' }, r.nameWithOwner, r.isPrivate ? h('span', { class: 'tag' }, 'privé') : h('span', { class: 'tag' }, 'publiek')),
+          h(
+            'div',
+            { class: 'git-repo-sub' },
+            [r.primaryLanguage?.name, r.diskUsage ? `${(r.diskUsage / 1024).toFixed(1)} MB` : '', r.pushedAt ? `laatst gepusht ${fmtWhen(Date.parse(r.pushedAt))}` : '', r.viewerPermission ? r.viewerPermission.toLowerCase() : ''].filter(Boolean).join(' · '),
+          ),
+          r.description ? h('div', { class: 'git-repo-desc' }, r.description) : null,
+          linked.length ? h('div', { class: 'git-repo-linked' }, `gekoppeld aan ${linked.map((p) => p.name).join(', ')}`) : null,
+        ),
+        h(
+          'div',
+          { class: 'git-repo-actions' },
+          iconBtn('external', 'Openen op GitHub', () => call('app:openExternal', r.url)),
+          iconBtn('pencil', 'Naam wijzigen', () => renameRepoFlow(r)),
+          iconBtn(r.isPrivate ? 'globe' : 'shield', r.isPrivate ? 'Publiek maken' : 'Privé maken', () => visibilityFlow(r)),
+          iconBtn('trash', 'Verwijderen', () => deleteRepoFlow(r), 'danger'),
+        ),
+      );
+      return row;
+    }
+
+    openModal(
+      h(
+        'div',
+        {},
+        h('h2', {}, 'Mijn GitHub-repo\u2019s'),
+        h('p', { class: 'lead' }, 'Beheer je repo\u2019s zonder naar github.com te gaan: openen, koppelen aan een project, hernoemen, privé of publiek maken, en verwijderen (één klik + bevestigen).'),
+        notice,
+        h('div', { class: 'git-field', style: 'margin-bottom:12px' }, search, btn('Nieuw repo van een map…', 'ghost', () => createRepoFromFolder(), 'plus')),
+        listBox,
+        h('div', { class: 'modal-actions' }, btn('Vernieuwen', 'ghost', load, 'refresh'), btn('Sluiten', 'primary', closeModal)),
+      ),
+      'wide',
+    );
+    load();
+  }
+
+  async function deleteRepoFlow(r) {
+    const sure = await confirmDialog(
+      'Repo verwijderen?',
+      `"${r.nameWithOwner}" wordt definitief van GitHub verwijderd, inclusief alle commits en bestanden. Dit kan niet ongedaan gemaakt worden.`,
+      'Verwijderen',
+      true,
+    );
+    if (!sure) return;
+    toast(`Verwijderen: ${r.nameWithOwner}…`);
+    try {
+      const res = await call('git:deleteRepo', r.nameWithOwner);
+      if (res.ok) {
+        toast(`Verwijderd: ${r.nameWithOwner}`);
+        G.repos = null;
+        reposModal();
+      } else if (res.needsScope) {
+        G.scopeNeeded = true;
+        toast('GitHub vraagt eerst extra toestemming voor verwijderen.', 'error');
+        reposModal();
+      } else {
+        toast(res.error || 'Verwijderen mislukt', 'error');
+      }
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function renameRepoFlow(r) {
+    const name = await promptDialog('Naam van de repo wijzigen', r.name);
+    if (!name || name === r.name) return;
+    try {
+      await call('git:renameRepo', r.nameWithOwner, name.trim());
+      toast(`Hernoemd naar ${name.trim()}`);
+      G.repos = null;
+      reposModal();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function visibilityFlow(r) {
+    const toPrivate = !r.isPrivate;
+    const sure = await confirmDialog(
+      toPrivate ? 'Repo privé maken?' : 'Repo publiek maken?',
+      toPrivate
+        ? `"${r.nameWithOwner}" is daarna alleen voor jou zichtbaar.`
+        : `"${r.nameWithOwner}" wordt voor iedereen zichtbaar op GitHub. Zet er nooit sleutels in.`,
+      toPrivate ? 'Privé maken' : 'Publiek maken',
+      !toPrivate,
+    );
+    if (!sure) return;
+    try {
+      await call('git:setVisibility', r.nameWithOwner, toPrivate);
+      toast(toPrivate ? 'Repo is nu privé' : 'Repo is nu publiek');
+      G.repos = null;
+      reposModal();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function createRepoFromFolder() {
+    const dir = await call('workspace:pick');
+    if (!dir) return;
+    toast('Repo aanmaken op GitHub…');
+    try {
+      const st = await call('git:addProject', dir);
+      const proj = (st.projects || []).find((p) => p.path === dir);
+      if (!proj) throw new Error('Project niet gevonden.');
+      const r = await call('git:createRepo', proj.id);
+      if (r.blocked) toast(`Niets gepusht: geheimen gevonden in ${r.secrets.block.map((s) => s.file).join(', ')}`, 'error');
+      else toast(`Repo klaar: ${r.url || ''}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+    G.repos = null;
+    await refresh();
+    reposModal();
+  }
+
+  async function authRefresh() {
+    try {
+      await call('git:authRefresh', 'delete_repo');
+      toast('Rond de toestemming af in Terminal; daarna kun je hier repo\u2019s verwijderen.');
+    } catch (e) {
+      toast(e.message, 'error');
+    }
   }
 
   // ---------- activiteit ----------

@@ -52,3 +52,14 @@
 .git-entry .git-entry-msg { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-entry .git-entry-sub { color: var(--muted); font-size: 11.5px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-detected { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+
+/* ---------- repo's beheren ---------- */
+.git-repo { display: flex; align-items: center; gap: 10px; }
+.git-repo .git-repo-main { flex: 1; min-width: 0; }
+.git-repo-name { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13.5px; }
+.git-repo-sub { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+.git-repo-desc { color: var(--muted); font-size: 12px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.git-repo-linked { color: var(--ok); font-size: 11.5px; margin-top: 3px; }
+.git-repo-actions { display: flex; gap: 2px; flex: none; }
+.icon-btn.small.danger { color: var(--danger); }
+.icon-btn.small.danger:hover { background: var(--danger-soft); }

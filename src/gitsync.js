@@ -348,12 +348,13 @@ async function pushProject(id, { message = '', force = false, branch } = {}) {
     const push = await git(p.path, ['push', '-u', 'origin', target], { timeout: 900000 });
     if (!push.ok) {
       const err = (push.err.trim() || push.out.trim()).split('\n').slice(-4).join('\n');
-      const hint = /Repository not found|does not exist/i.test(err)
-        ? ' De repo bestaat nog niet op GitHub: maak hem aan met "Repo aanmaken" of pas de URL aan.'
+      const missing = /Repository not found|does not exist|Could not read from remote repository/i.test(err);
+      const hint = missing
+        ? ' De repo bestaat nog niet op GitHub (of je hebt er geen toegang toe). Klik op "Repo aanmaken" om hem aan te maken en meteen te pushen.'
         : /Permission denied|publickey/i.test(err)
           ? ' Geen toegang via SSH — controleer je SSH-sleutel bij GitHub.'
           : '';
-      return { ok: false, project: p.name, error: `git push mislukte: ${err}${hint}`, steps, secrets, files: staged.length, hidden: secretFiles };
+      return { ok: false, project: p.name, missingRepo: missing, remote: repoUrl, error: `git push mislukte: ${err}${hint}`, steps, secrets, files: staged.length, hidden: secretFiles };
     }
     pushed = true;
     steps.push(`push naar ${repoUrl.replace(/^git@github\.com:/, '').replace(/\.git$/, '')}`);
@@ -504,6 +505,8 @@ async function ghStatus() {
 }
 
 // Maakt een privé-repo aan op GitHub en pusht de eerste versie.
+// De naam komt uit de ingestelde repo-URL (of de projectnaam), niet uit de mapnaam,
+// zodat "~/Projects/Orka" netjes "penuraplicatie" wordt.
 async function createRepo(id) {
   const p = project(id);
   if (!fs.existsSync(p.path)) throw new Error(`Map niet gevonden: ${p.path}`);
@@ -522,17 +525,118 @@ async function createRepo(id) {
   const secrets = scanFiles(p.path, staged);
   if (secrets.block.length) return { ok: false, blocked: true, secrets, error: 'Geheimen gevonden — er is niets gepusht.' };
   if (!(await git(p.path, ['rev-parse', 'HEAD'])).ok) {
-    const msg = p.firstMessage || 'Eerste versie via penuraplicatie';
+    const msg = p.firstMessage || `Eerste versie van ${p.name} via penuraplicatie`;
     const c = await git(p.path, ['commit', '--allow-empty', '-m', msg, '--no-verify']);
     if (!c.ok) throw new Error(c.err);
   }
-  const name = String(p.repoName || path.basename(p.path)).replace(/[^\w.-]+/g, '-');
-  const create = await run('gh', ['repo', 'create', name, '--private', '--source', p.path, '--remote', 'origin', '--push', '--disable-wiki'], { cwd: p.path, timeout: 900000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
-  if (!create.ok) throw new Error(create.out.replace(/\s+/g, ' ').slice(0, 400));
-  const url = (create.out.match(/https:\/\/github\.com\/\S+/) || [])[0]?.replace(/\/$/, '') || `https://github.com/${gh.user}/${name}`;
-  const remote = `${url.replace(/^https:\/\/github\.com\//, 'git@github.com:')}${url.endsWith('.git') ? '' : '.git'}`;
+
+  const name = repoNameFor(p);
+  const owner = String(p.repo || '').match(/github\.com[:/]([^/]+)\//)?.[1] || gh.user;
+  const full = `${owner}/${name}`;
+  const create = await run('gh', ['repo', 'create', full, '--private', '--disable-wiki'], { timeout: 300000, cwd: HOME });
+  const already = /already exists/i.test(create.out);
+  if (!create.ok && !already) throw new Error(create.out.replace(/\s+/g, ' ').slice(0, 300));
+
+  // Remote goedzetten en met onze eigen push-logica versturen (dan geldt ook de geheimen-scan).
+  const remote = `git@github.com:${full}.git`;
+  const cur = await git(p.path, ['remote', 'get-url', 'origin']);
+  if (!cur.ok) await git(p.path, ['remote', 'add', 'origin', remote]);
+  else await git(p.path, ['remote', 'set-url', 'origin', remote]);
   setGitConfig({ projects: getGitConfig().projects.map((x) => (x.id === id ? { ...x, repo: remote, branch } : x)) });
-  return { ok: true, url, remote, branch };
+  const pushed = await pushProject(id, { message: p.firstMessage || `Eerste versie van ${p.name} via penuraplicatie`, branch });
+  return { ok: pushed.ok !== false, url: `https://github.com/${full}`, remote, branch, already, push: pushed, activity: activity() };
+}
+
+// Naam van de repo: uit de repo-URL, anders repoName, anders de projectnaam.
+function repoNameFor(p) {
+  const fromUrl = String(p.repo || '').match(/github\.com[:/][^/]+\/([^/]+?)(\.git)?$/)?.[1];
+  const raw = fromUrl || p.repoName || p.name || path.basename(p.path);
+  return String(raw).replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'repo';
+}
+
+async function setRemote(p, remote) {
+  const cur = await git(p.path, ['remote', 'get-url', 'origin']);
+  if (!cur.ok) await git(p.path, ['remote', 'add', 'origin', remote]);
+  else if (cur.out.trim() !== remote) await git(p.path, ['remote', 'set-url', 'origin', remote]);
+  setGitConfig({ projects: getGitConfig().projects.map((x) => (x.id === p.id ? { ...x, repo: remote } : x)) });
+}
+
+// Bestaat de repo op GitHub (en mag je erbij)?
+async function repoExists(url) {
+  if (!url) return false;
+  const r = await git(HOME, ['ls-remote', '--exit-code', '--heads', url], { timeout: 20000 });
+  if (r.ok) return true;
+  return !/Repository not found|does not exist|Could not read from remote/i.test(`${r.err}${r.out}`);
+}
+
+// Welke projectrepo's bestaan er echt? (voor het waarschuwingslabel in de app)
+async function checkRepos() {
+  const out = {};
+  const list = getGitConfig().projects.filter((p) => p.repo);
+  await Promise.all(list.map(async (p) => (out[p.id] = await repoExists(p.repo))));
+  return out;
+}
+
+// ---------- repo's beheren ----------
+const REPO_FIELDS = 'name,nameWithOwner,description,isPrivate,visibility,updatedAt,pushedAt,primaryLanguage,diskUsage,url,viewerPermission';
+
+async function listRepos() {
+  const gh = await ghStatus();
+  if (!gh.authed) return { authed: false, user: null, repos: [] };
+  const r = await run('gh', ['repo', 'list', '--limit', '300', '--json', REPO_FIELDS], { timeout: 90000 });
+  if (!r.ok) throw new Error(r.out.replace(/\s+/g, ' ').slice(0, 300));
+  let repos = [];
+  try {
+    repos = JSON.parse(r.out);
+  } catch {
+    throw new Error('Kon de repolijst niet lezen.');
+  }
+  return { authed: true, user: gh.user, repos: repos.sort((a, b) => new Date(b.pushedAt || b.updatedAt) - new Date(a.pushedAt || a.updatedAt)) };
+}
+
+async function deleteRepo(nameWithOwner) {
+  const r = await run('gh', ['repo', 'delete', nameWithOwner, '--yes'], { timeout: 120000 });
+  if (r.ok) return { ok: true };
+  const out = r.out.replace(/\s+/g, ' ').slice(0, 400);
+  if (/delete_repo|insufficient|scope/i.test(out)) {
+    return { ok: false, needsScope: true, error: 'GitHub wil eerst extra toestemming voor verwijderen.' };
+  }
+  return { ok: false, error: out };
+}
+
+async function renameRepo(nameWithOwner, newName) {
+  const r = await run('gh', ['repo', 'rename', newName, '--repo', nameWithOwner, '--yes'], { timeout: 120000 });
+  if (!r.ok) throw new Error(r.out.replace(/\s+/g, ' ').slice(0, 300));
+  return { ok: true, name: `${nameWithOwner.split('/')[0]}/${newName}` };
+}
+
+async function setVisibility(nameWithOwner, isPrivate) {
+  const args = ['repo', 'edit', nameWithOwner, '--visibility', isPrivate ? 'private' : 'public', '--accept-visibility-change-consequences'];
+  const r = await run('gh', args, { timeout: 120000 });
+  if (!r.ok) throw new Error(r.out.replace(/\s+/g, ' ').slice(0, 300));
+  return { ok: true };
+}
+
+// Koppelt een bestaande repo aan een project (remote goedzetten).
+async function linkRepo(id, repoUrl) {
+  const p = project(id);
+  const url = String(repoUrl || '').trim();
+  if (!url) throw new Error('Geen repo opgegeven.');
+  const ok = await repoExists(url);
+  setGitConfig({ projects: getGitConfig().projects.map((x) => (x.id === id ? { ...x, repo: url } : x)) });
+  if (!ok) return { ok: false, linked: true, error: 'Deze repo bestaat nog niet (of je hebt geen toegang). Met "Repo aanmaken" maken we hem aan.' };
+  await setRemote(project(id), url);
+  return { ok: true, linked: true };
+}
+
+// Extra rechten vragen (bv. delete_repo) — Terminal, net als bij inloggen.
+async function openAuthRefresh(scope = 'delete_repo') {
+  const script = `tell application "Terminal"
+  activate
+  do script "gh auth refresh --hostname github.com -s ${scope.replace(/[^\w:.-]/g, '')}"
+end tell`;
+  await execFileP('osascript', ['-e', script], { timeout: 15000 }).catch(() => {});
+  return true;
 }
 
 // Opent Terminal met de inlogopdracht; de gebruiker rondt het zelf af in de browser.
@@ -583,4 +687,13 @@ module.exports = {
   openLogin,
   suggestMessage,
   projectStatus,
+  repoExists,
+  checkRepos,
+  listRepos,
+  deleteRepo,
+  renameRepo,
+  setVisibility,
+  linkRepo,
+  openAuthRefresh,
+  repoNameFor,
 };

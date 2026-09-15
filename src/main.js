@@ -647,6 +647,29 @@ handle('git:createRepo', async (id) => {
   send('git:changed');
   return r;
 });
+handle('git:checkRepos', () => gitsync.checkRepos());
+handle('git:listRepos', () => gitsync.listRepos());
+handle('git:deleteRepo', async (nameWithOwner) => {
+  const r = await gitsync.deleteRepo(nameWithOwner);
+  send('git:changed');
+  return r;
+});
+handle('git:renameRepo', async (nameWithOwner, name) => {
+  const r = await gitsync.renameRepo(nameWithOwner, name);
+  send('git:changed');
+  return r;
+});
+handle('git:setVisibility', async (nameWithOwner, isPrivate) => {
+  const r = await gitsync.setVisibility(nameWithOwner, isPrivate);
+  send('git:changed');
+  return r;
+});
+handle('git:linkRepo', async (id, url) => {
+  const r = await gitsync.linkRepo(id, url);
+  send('git:changed');
+  return r;
+});
+handle('git:authRefresh', (scope) => gitsync.openAuthRefresh(scope || 'delete_repo'));
 handle('git:login', () => gitsync.openLogin());
 handle('git:pickFolder', async (id) => {
   const r = await dialog.showOpenDialog(win, { title: 'Kies de projectmap', properties: ['openDirectory', 'createDirectory'] });
