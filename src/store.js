@@ -34,6 +34,7 @@ const DEFAULTS = {
 
   autoTodos: false, // laat DawgAgent standaard een takenlijst bijhouden (Taken-paneel)
   secretAgent: false, // DawgSecretAgent-modus: alleen naam + logo veranderen, verder niets
+  lang: 'auto', // taal van de app: 'auto' = die van de Mac, anders bijv. 'nl' of 'en'
   panelOpen: false, // zijpaneel open bij het starten
   panelTab: 'chat',
   panelWidth: 400,
@@ -107,7 +108,7 @@ function newSession(workspace) {
   const id = `${Date.now().toString(36)}${crypto.randomBytes(3).toString('hex')}`;
   return {
     id,
-    title: 'Nieuwe chat',
+    title: require('./i18n').t('Nieuwe chat'),
     created: Date.now(),
     updated: Date.now(),
     workspace: workspace || getConfig().workspace,

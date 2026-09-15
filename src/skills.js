@@ -5,6 +5,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { PATHS, getConfig } = require('./store');
+const i18n = require('./i18n');
 
 const execFileP = promisify(execFile);
 
@@ -106,7 +107,7 @@ async function importSkill(src) {
     createSkill({ name, description: meta.description || body.split('\n').find((l) => l.trim()) || '', instructions: body });
     imported.push(name);
   }
-  if (!imported.length) throw new Error('Geen SKILL.md gevonden in wat je hebt gekozen.');
+  if (!imported.length) throw new Error(i18n.t('Geen SKILL.md gevonden in wat je hebt gekozen.'));
   return imported;
 }
 
@@ -116,11 +117,12 @@ async function removeSkill(id) {
   if (fs.existsSync(dir)) await shell.trashItem(dir);
 }
 
-const SEED = [
-  {
-    name: 'skill-maker',
-    description: 'Gebruik dit wanneer de gebruiker een nieuwe skill wil maken of een terugkerende werkwijze wil vastleggen.',
-    instructions: `# Een skill maken
+const SEED = {
+  nl: [
+    {
+      name: 'skill-maker',
+      description: 'Gebruik dit wanneer de gebruiker een nieuwe skill wil maken of een terugkerende werkwijze wil vastleggen.',
+      instructions: `# Een skill maken
 
 Een skill is een map in de skills-map van DawgAgent met een \`SKILL.md\`:
 
@@ -139,24 +141,63 @@ Werkwijze:
 2. Gebruik \`create_skill\` om hem aan te maken. Extra bestanden (scripts, sjablonen) kun je met \`write_file\` in dezelfde map zetten.
 3. Houd de beschrijving specifiek: die bepaalt wanneer de skill later wordt gekozen.
 `,
-  },
-  {
-    name: 'spreadsheet-analyse',
-    description: 'Gebruik dit bij het analyseren, opschonen of samenvatten van Excel-, CSV- of Numbers-bestanden.',
-    instructions: `# Spreadsheets analyseren
+    },
+    {
+      name: 'spreadsheet-analyse',
+      description: 'Gebruik dit bij het analyseren, opschonen of samenvatten van Excel-, CSV- of Numbers-bestanden.',
+      instructions: `# Spreadsheets analyseren
 
 1. Lees eerst de structuur met \`read_spreadsheet\` (tabbladen, kolommen, aantal rijen).
 2. Voor berekeningen op veel rijen: schrijf een klein Python-script (pandas als het beschikbaar is, anders csv-module) en voer het uit met \`run_shell\`.
 3. Rapporteer bevindingen kort: belangrijkste cijfers, opvallende uitschieters, en wat je hebt aangenomen.
 4. Maak nooit het originele bestand kapot — schrijf resultaten naar een nieuw bestand naast het origineel.
 `,
-  },
-];
+    },
+  ],
+  en: [
+    {
+      name: 'skill-maker',
+      description: 'Use this when the user wants to create a new skill or capture a recurring way of working.',
+      instructions: `# Creating a skill
+
+A skill is a folder in DawgAgent's skills folder with a \`SKILL.md\`:
+
+\`\`\`markdown
+---
+name: short-name
+description: One sentence that says WHEN this skill should be used.
+---
+
+# Title
+Step-by-step instructions, examples, pitfalls.
+\`\`\`
+
+How to go about it:
+1. Ask (if it is not clear) what the skill should do and when it should trigger.
+2. Use \`create_skill\` to create it. Extra files (scripts, templates) go in the same folder with \`write_file\`.
+3. Keep the description specific: it decides when the skill is picked later on.
+`,
+    },
+    {
+      name: 'spreadsheet-analysis',
+      description: 'Use this when analysing, cleaning up or summarising Excel, CSV or Numbers files.',
+      instructions: `# Analysing spreadsheets
+
+1. First read the structure with \`read_spreadsheet\` (sheets, columns, number of rows).
+2. For calculations over many rows: write a small Python script (pandas if available, otherwise the csv module) and run it with \`run_shell\`.
+3. Report findings briefly: the key numbers, notable outliers, and what you assumed.
+4. Never break the original file — write results to a new file next to it.
+`,
+    },
+  ],
+};
 
 function seedSkills() {
   const marker = path.join(PATHS.data, '.skills-seeded');
   if (fs.existsSync(marker)) return;
-  for (const s of SEED) createSkill(s);
+  // Nieuwe gebruikers krijgen de voorbeeld-skills in de taal van hun Mac.
+  const seed = SEED[i18n.locale()] || SEED.en;
+  for (const s of seed) createSkill(s);
   fs.writeFileSync(marker, String(Date.now()));
 }
 

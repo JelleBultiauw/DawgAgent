@@ -1,5 +1,6 @@
 // BloxCode in de interface: startscherm, Studio-kiezer, modi, /-commando's en vensters.
 // app.js geeft zijn hulpfuncties mee via createBlox(ctx).
+import { dateLocale, t } from './i18n.js';
 
 export const BLOX_ICONS = {
   cube: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
@@ -448,7 +449,7 @@ export function createBlox(ctx) {
     const u = state.session?.usage || { input: 0, output: 0, cached: 0, lastPrompt: 0 };
     const pct = u.input ? Math.round((u.cached / u.input) * 100) : 0;
     const cell = (label, value) => h('div', { class: 'stat' }, h('small', {}, label), h('b', {}, value));
-    modal('Tokenverbruik (deze chat)', null, h('div', { class: 'stats' }, cell('Invoer', u.input.toLocaleString('nl-NL')), cell('Waarvan cache', `${u.cached.toLocaleString('nl-NL')} (${pct}%)`), cell('Uitvoer', u.output.toLocaleString('nl-NL')), cell('Laatste prompt', u.lastPrompt.toLocaleString('nl-NL'))), [
+    modal('Tokenverbruik (deze chat)', null, h('div', { class: 'stats' }, cell('Invoer', u.input.toLocaleString(dateLocale)), cell('Waarvan cache', `${u.cached.toLocaleString(dateLocale)} (${pct}%)`), cell('Uitvoer', u.output.toLocaleString(dateLocale)), cell('Laatste prompt', u.lastPrompt.toLocaleString(dateLocale))), [
       btn('Saldo op DeepSeek', 'ghost', () => call('app:openExternal', 'https://platform.deepseek.com/usage'), 'external'),
     ]);
   }

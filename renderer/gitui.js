@@ -1,5 +1,6 @@
 // GitHub-sync in de interface: knop in de zijbalk, mini-activiteitsgraph en de vensters.
 // app.js geeft zijn hulpfuncties mee via createGit(ctx).
+import { dateLocale } from './i18n.js';
 export function createGit(ctx) {
   const { h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state } = ctx;
 
@@ -15,7 +16,7 @@ export function createGit(ctx) {
     body: null, // inhoud van het sync-venster, zodat we opnieuw kunnen tekenen
   };
 
-  const dayLabel = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+  const dayLabel = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
   const level = (n) => (n <= 0 ? '' : n === 1 ? 'l1' : n === 2 ? 'l2' : 'l3');
   const cellTitle = (d) =>
     d ? `${dayLabel(d.date)} · ${d.commits} wijziging${d.commits === 1 ? '' : 'en'} · ${d.files} bestand${d.files === 1 ? '' : 'en'}${Object.keys(d.projects).length ? ` · ${Object.keys(d.projects).join(', ')}` : ''}` : '';
@@ -682,7 +683,7 @@ export function createGit(ctx) {
       const open = G.expanded[`a${e.ts}`];
       const row = h('div', { class: 'card' });
       const when = fmtWhen(e.ts);
-      const time = new Date(e.ts).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+      const time = new Date(e.ts).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
       row.append(
         h(
           'div',

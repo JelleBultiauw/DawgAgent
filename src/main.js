@@ -49,6 +49,7 @@ const { testKey } = require('./llm');
 
 const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, 'preload.js');
+const i18n = require('./i18n');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let win = null;
@@ -93,6 +94,7 @@ function ensureHud() {
   hud.setContentProtection(true);
   hud.setIgnoreMouseEvents(false);
   hud.loadFile(path.join(RENDERER, 'hud.html'));
+  hud.webContents.once('did-finish-load', () => hud.webContents.send('hud:lang', { locale: i18n.locale(), strings: i18n.hudStrings() }));
   return hud;
 }
 
@@ -267,7 +269,15 @@ function createWindow() {
     trafficLightPosition: { x: 18, y: 19 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a19' : '#ffffff',
     show: false,
-    webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, spellcheck: false, webviewTag: true },
+    webPreferences: {
+      preload: PRELOAD,
+      contextIsolation: true,
+      sandbox: true,
+      spellcheck: false,
+      webviewTag: true,
+      // De taal van de app gaat mee het venster in, zodat de interface direct goed staat.
+      additionalArguments: [`--orka-locale=${i18n.locale()}`],
+    },
   });
   win.loadFile(path.join(RENDERER, 'index.html'));
   win.once('ready-to-show', () => win.show());
@@ -303,7 +313,21 @@ handle('app:info', () => ({
   skillsDir: store.PATHS.skills,
   version: app.getVersion(),
   home: require('os').homedir(),
-}));handle('app:openPath', (p) => shell.openPath(p));
+  locale: i18n.locale(),
+}));
+// Taal: welke taal de app nu gebruikt, wat de Mac zelf vraagt en welke talen er zijn.
+handle('i18n:info', () => i18n.info());
+handle('i18n:set', async (code) => {
+  const choice = String(code || 'auto');
+  store.setConfig({ lang: choice === 'auto' ? 'auto' : i18n.available().includes(choice) ? choice : 'auto' });
+  return i18n.info();
+});
+// Taal gewisseld: opnieuw starten is het simpelst en het schoonst.
+handle('i18n:restart', () => {
+  app.relaunch();
+  app.exit(0);
+});
+handle('app:openPath', (p) => shell.openPath(p));
 handle('app:reveal', (p) => shell.showItemInFolder(p));
 // "Open in Finder"-knoppen bij paden in chatberichten.
 handle('app:openInFinder', (p) => {
@@ -358,7 +382,7 @@ handle('config:set', async (patch) => {
 handle('apikey:set', async (key) => {
   const clean = store.cleanApiKey(key);
   if (!/^sk-[A-Za-z0-9_-]{10,}$/.test(clean) && clean.length < 20) {
-    throw new Error('Dit lijkt geen geldige DeepSeek-sleutel. Hij begint met "sk-" — kopieer hem opnieuw van platform.deepseek.com.');
+    throw new Error(i18n.t('Dit lijkt geen geldige DeepSeek-sleutel. Hij begint met "sk-" — kopieer hem opnieuw van platform.deepseek.com.'));
   }
   const models = await testKey({ cfg: store.getConfig(), apiKey: clean });
   store.setApiKey(clean);
@@ -389,7 +413,7 @@ handle('sessions:sideFor', (parentId) => {
   if (!rec) {
     const s = store.newSession(parent.workspace);
     s.parentId = parentId;
-    s.title = `Zijchat · ${parent.title || 'chat'}`.slice(0, 60);
+    s.title = `${i18n.t('Zijchat')} · ${parent.title || i18n.t('chat')}`.slice(0, 60);
     store.saveSession(s);
     rec = { id: s.id };
   }
@@ -403,7 +427,7 @@ handle('sessions:newSide', (parentId) => {
   if (!parent) return null;
   const s = store.newSession(parent.workspace);
   s.parentId = parent.id;
-  s.title = `Zijchat · ${parent.title || 'chat'}`.slice(0, 60);
+  s.title = `${i18n.t('Zijchat')} · ${parent.title || i18n.t('chat')}`.slice(0, 60);
   store.saveSession(s);
   return { id: s.id };
 });
@@ -462,16 +486,16 @@ handle('chat:stopAll', () => agent.stopAll());
 handle('chat:approve', (requestId, decision) => agent.resolveApproval(requestId, decision));
 
 handle('workspace:pick', async () => {
-  const r = await dialog.showOpenDialog(win, { title: 'Kies een werkmap', properties: ['openDirectory', 'createDirectory'] });
+  const r = await dialog.showOpenDialog(win, { title: i18n.t('Kies een werkmap'), properties: ['openDirectory', 'createDirectory'] });
   return r.canceled ? null : r.filePaths[0];
 });
 
 const IMAGE_FILTER = [{ name: "Foto's", extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif', 'tif', 'tiff', 'bmp'] }];
 handle('attach:pick', async (sessionId, kind) => {
   const opts = {
-    images: { title: "Foto's toevoegen", properties: ['openFile', 'multiSelections'], filters: IMAGE_FILTER },
-    files: { title: 'Bestanden toevoegen', properties: ['openFile', 'multiSelections'] },
-    folder: { title: 'Map toevoegen', properties: ['openDirectory', 'multiSelections'] },
+    images: { title: i18n.t("Foto's toevoegen"), properties: ['openFile', 'multiSelections'], filters: IMAGE_FILTER },
+    files: { title: i18n.t('Bestanden toevoegen'), properties: ['openFile', 'multiSelections'] },
+    folder: { title: i18n.t('Map toevoegen'), properties: ['openDirectory', 'multiSelections'] },
   }[kind];
   const r = await dialog.showOpenDialog(win, opts);
   if (r.canceled) return [];
@@ -494,7 +518,7 @@ handle('skills:get', (id) => skills.getSkill(id));
 handle('skills:create', (data) => skills.createSkill(data));
 handle('skills:save', (id, content) => {
   const s = skills.getSkill(id);
-  if (!s) throw new Error('Skill niet gevonden');
+  if (!s) throw new Error(i18n.t('Skill niet gevonden'));
   fs.writeFileSync(path.join(s.dir, 'SKILL.md'), content);
 });
 handle('skills:delete', (id) => skills.removeSkill(id));
@@ -506,7 +530,7 @@ handle('skills:toggle', (id, enabled) => {
 });
 handle('skills:import', async () => {
   const r = await dialog.showOpenDialog(win, {
-    title: 'Skill importeren (map, SKILL.md of .zip)',
+    title: i18n.t('Skill importeren (map, SKILL.md of .zip)'),
     properties: ['openFile', 'openDirectory', 'multiSelections'],
     filters: [{ name: 'Skills', extensions: ['md', 'zip', 'skill'] }],
   });
@@ -687,7 +711,7 @@ handle('git:linkRepo', async (id, url) => {
 handle('git:authRefresh', (scope) => gitsync.openAuthRefresh(scope || 'delete_repo'));
 handle('git:login', () => gitsync.openLogin());
 handle('git:pickFolder', async (id) => {
-  const r = await dialog.showOpenDialog(win, { title: 'Kies de projectmap', properties: ['openDirectory', 'createDirectory'] });
+  const r = await dialog.showOpenDialog(win, { title: i18n.t('Kies de projectmap'), properties: ['openDirectory', 'createDirectory'] });
   if (r.canceled || !r.filePaths[0]) return null;
   const projects = gitsync.getGitConfig().projects.map((p) => (p.id === id ? { ...p, path: r.filePaths[0] } : p));
   gitsync.setGitConfig({ projects });
@@ -695,7 +719,7 @@ handle('git:pickFolder', async (id) => {
   return gitsync.status();
 });
 handle('git:addProject', (dir) => {
-  if (!dir || !fs.existsSync(dir)) throw new Error('Map niet gevonden.');
+  if (!dir || !fs.existsSync(dir)) throw new Error(i18n.t('Map niet gevonden.'));
   const projects = gitsync.getGitConfig().projects.filter((p) => p.path !== dir);
   projects.push({ id: `p${Date.now().toString(36)}`, name: path.basename(dir), path: dir, repo: '', branch: 'main', enabled: true });
   gitsync.setGitConfig({ projects });
@@ -777,9 +801,9 @@ handle('blox:newSession', () => {
 });
 // BloxCode aan/uit voor deze chat (het is een functie per chat, geen aparte ruimte).
 handle('blox:setSession', (sessionId, on) => {
-  if (agent.isRunning(sessionId)) throw new Error('Wacht tot deze chat klaar is met de beurt en probeer het opnieuw.');
+  if (agent.isRunning(sessionId)) throw new Error(i18n.t('Wacht tot deze chat klaar is met de beurt en probeer het opnieuw.'));
   const s = store.loadSession(sessionId);
-  if (!s) throw new Error('Chat niet gevonden.');
+  if (!s) throw new Error(i18n.t('Chat niet gevonden.'));
   if (on) s.kind = 'blox';
   else delete s.kind;
   store.saveSession(s);

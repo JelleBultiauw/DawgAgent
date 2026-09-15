@@ -74,3 +74,15 @@ DawgAgent kent zijn eigen broncode (deze map). Na een wijziging herlaadt hij zic
 | Broncode | deze map (`src/` = achterkant, `renderer/` = interface, `native/` = computer-use-helper) |
 | Chats, skills, instellingen, back-ups | `~/Library/Application Support/DawgAgent` |
 | API-sleutel | `~/Library/Application Support/DawgAgent/credentials.json` (alleen leesbaar voor jou) |
+
+## Taal
+
+DawgAgent volgt de taal van je Mac: staat die in het Nederlands, dan is de app Nederlands;
+in het Engels Engels. In **Instellingen → Taal** kun je er ook zelf een kiezen.
+
+Een taal toevoegen gaat met een taalbestand: `renderer/locales/<code>.js` (zie `en.js`).
+Staat je taal er nog niet in, dan maakt dit script hem met je eigen model:
+
+```
+node_modules/.bin/electron scripts/translate-locale.js fr
+```

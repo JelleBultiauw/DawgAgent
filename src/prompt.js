@@ -7,6 +7,7 @@ const { APP_DIR } = require('./snapshots');
 const { PATHS } = require('./store');
 const { EXT_DIR } = require('./browser');
 const { listSkills } = require('./skills');
+const i18n = require('./i18n');
 
 let macVersion = null;
 function getMacVersion() {
@@ -41,7 +42,8 @@ function buildSystemPrompt({ cfg, session, connectors, side = null }) {
   const cwd = session.workspace && fs.existsSync(session.workspace) ? session.workspace : os.homedir();
   const skills = listSkills().filter((s) => s.enabled);
   const conns = connectors.status();
-  const today = new Date().toLocaleDateString('nl-NL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const uiLocale = i18n.locale() === 'nl' ? 'nl-NL' : i18n.locale() === 'en' ? 'en-GB' : i18n.locale();
+  const today = new Date().toLocaleDateString(uiLocale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   return `You are DawgAgent, a capable autonomous agent that runs as a desktop app on the user's Mac. You are the user's own coding and computer assistant, comparable to Claude Code or Codex: you get real work done by calling tools — reading and editing files, running shell commands, searching the web, using skills and connectors, and (when enabled) operating the computer.
 ${
   side
@@ -59,7 +61,7 @@ ${side.text}
 `
     : ''
 }# How to work
-- Reply in the user's language (usually Dutch). Be direct and concise; use Markdown. No filler.
+- Reply in the user's language. The app interface is currently in ${i18n.languageName(i18n.locale())}, so the user most likely writes and reads that language too. Be direct and concise; use Markdown. No filler.
 - Act instead of describing what you would do. Use tools to check facts about files, code and system state rather than guessing.
 - For tasks with several steps, keep a todo list with todo_write and update it as you go.${cfg.autoTodos ? ' De gebruiker volgt je voortgang in het Taken-paneel naast de chat: maak de lijst zodra een taak meer dan één stap heeft, houd precies één item op in_progress en vink afgeronde stappen meteen af.' : ''}
 - Read a file before editing it. Use edit_file for targeted changes and write_file for new files or full rewrites.

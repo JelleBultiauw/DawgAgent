@@ -28,7 +28,17 @@
       <button id="stop">Stop<kbd>⌘⇧⎋</kbd></button>
     </div>
     <script>
-      window.orka.on('hud:update', (d) => { document.getElementById('sub').textContent = d.text || 'Bezig…'; });
+      const T = { title: 'DawgAgent bestuurt je computer', busy: 'Bezig…', stop: 'Stop' };
+      const sub = document.getElementById('sub');
+      window.orka.on('hud:lang', (d) => {
+        if (!d?.strings) return;
+        Object.assign(T, d.strings);
+        document.querySelector('.title').textContent = T.title;
+        document.getElementById('stop').firstChild.textContent = T.stop;
+        sub.textContent = T.busy;
+        document.documentElement.lang = d.locale || 'nl';
+      });
+      window.orka.on('hud:update', (d) => { sub.textContent = d.text || T.busy; });
       document.getElementById('stop').addEventListener('click', () => window.orka.invoke('chat:stopAll'));
     </script>
   </body>

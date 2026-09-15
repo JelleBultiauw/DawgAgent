@@ -3,6 +3,7 @@ import DOMPurify from '../node_modules/dompurify/dist/purify.es.mjs';
 import hljs from './vendor/highlight.js';
 import { createBlox, BLOX_ICONS, BLOX_TOOL_META } from './bloxui.js';
 import { createGit } from './gitui.js';
+import { t, dateLocale } from './i18n.js';
 
 const api = window.orka;
 
@@ -140,12 +141,12 @@ const fmtTokens = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1000 ? `$
 
 let toastTimer;
 function toast(text, kind = '') {
-  const t = $('#toast');
-  t.textContent = text;
-  t.className = `toast ${kind}`;
-  t.hidden = false;
+  const el = $('#toast');
+  el.textContent = text;
+  el.className = `toast ${kind}`;
+  el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), kind === 'error' ? 6000 : 2600);
+  toastTimer = setTimeout(() => (el.hidden = true), kind === 'error' ? 6000 : 2600);
 }
 
 // ---------- markdown ----------
@@ -311,7 +312,11 @@ const TOOL_META = {
   computer_wait: ['Wachten', 'clock'],
   browser: ['Browser', 'globe'],
 };
-const toolLabel = (n) => TOOL_META[n]?.[0] || BLOX_TOOL_META[n]?.[0] || (n?.startsWith('mcp__') ? 'Connector' : n);
+const toolLabel = (n) => {
+  const label = TOOL_META[n]?.[0] || BLOX_TOOL_META[n]?.[0];
+  if (label) return t(label);
+  return n?.startsWith('mcp__') ? t('Connector') : n;
+};
 const toolIcon = (n) => TOOL_META[n]?.[1] || BLOX_TOOL_META[n]?.[1] || (n?.startsWith('mcp__') ? 'plug' : 'cpu');
 
 const MODES = {
@@ -580,12 +585,12 @@ function renderSessionList() {
             'span',
             { class: 'chat-actions' },
             iconBtn('pencil', 'Hernoemen', async () => {
-              const t = await promptDialog('Chat hernoemen', s.title);
-              if (!t) return;
-              await call('sessions:rename', s.id, t);
+              const naam = await promptDialog('Chat hernoemen', s.title);
+              if (!naam) return;
+              await call('sessions:rename', s.id, naam);
               if (state.session?.id === s.id) {
-                state.session.title = t;
-                setTopTitle(t);
+                state.session.title = naam;
+                setTopTitle(naam);
               }
               refreshSessions();
             }),
@@ -651,7 +656,7 @@ function renderUsage() {
   }
   const cachePct = u.input ? Math.round((u.cached / u.input) * 100) : 0;
   el.textContent = `${fmtTokens(u.lastPrompt)} context · ${fmtTokens(u.output)} uit · ${cachePct}% cache`;
-  el.title = `Totaal in: ${u.input.toLocaleString('nl-NL')} tokens (${u.cached.toLocaleString('nl-NL')} uit cache) · uit: ${u.output.toLocaleString('nl-NL')}`;
+  el.title = `Totaal in: ${u.input.toLocaleString(dateLocale)} tokens (${u.cached.toLocaleString(dateLocale)} uit cache) · uit: ${u.output.toLocaleString(dateLocale)}`;
   el.hidden = state.view !== 'chat';
 }
 
@@ -663,9 +668,9 @@ function fmtWhen(ts) {
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   const yesterday = new Date(now.getTime() - 864e5).toDateString() === d.toDateString();
-  if (sameDay) return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
   if (yesterday) return 'gisteren';
-  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
 }
 
 function emptyState() {
@@ -1874,6 +1879,33 @@ async function renderSettings() {
   const cfg = state.cfg;
   const inner = pageShell('settings', 'Instellingen', 'Alles blijft lokaal op deze Mac.', []);
 
+  // Taal: standaard die van de Mac, maar je kunt er ook zelf een kiezen.
+  const langInfo = await call('i18n:info').catch(() => null);
+  if (langInfo) {
+    const langSelect = h('select', { class: 'input', style: 'width:230px' });
+    langSelect.append(h('option', { value: 'auto' }, `${t('Automatisch')} — ${langInfo.systemName}`));
+    for (const l of langInfo.available) langSelect.append(h('option', { value: l.code }, l.name));
+    langSelect.value = cfg.lang && langInfo.available.some((l) => l.code === cfg.lang) ? cfg.lang : 'auto';
+    langSelect.addEventListener('change', async () => {
+      const previous = cfg.lang || 'auto';
+      const ok = await confirmDialog(t('Taal wijzigen?'), t('Om de nieuwe taal te gebruiken start DawgAgent opnieuw op.'), t('Herstarten'));
+      if (!ok) {
+        langSelect.value = previous;
+        return;
+      }
+      await call('i18n:set', langSelect.value);
+      call('i18n:restart');
+    });
+    inner.append(
+      h(
+        'div',
+        { class: 'section' },
+        h('h2', {}, 'Taal'),
+        h('div', { class: 'cards' }, settingRow('Taal van de app', 'Standaard volgt DawgAgent de taal van je Mac.', langSelect)),
+      ),
+    );
+  }
+
   // Model & API
   const keyInput = h('input', { class: 'input mono', type: 'password', placeholder: cfg.hasKey ? '•••••••• (opgeslagen)' : 'sk-…', style: 'width:230px' });
   const keyStatus = h('div', { class: 'row-hint' }, cfg.hasKey ? 'Sleutel is opgeslagen.' : 'Nog geen sleutel.');
@@ -1957,7 +1989,7 @@ async function renderSettings() {
           'button',
           {
             class: state.cfg.approval === id ? 'on' : '',
-            title: m.desc,
+            title: typeof m.desc === 'function' ? m.desc() : m.desc,
             onclick: async () => {
               await saveCfg({ approval: id });
               drawMode();
@@ -2109,7 +2141,7 @@ async function renderSettings() {
   for (const s of snaps.slice(0, 15)) {
     snapCards.append(
       settingRow(
-        new Date(s.created).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' }),
+        new Date(s.created).toLocaleString(dateLocale, { dateStyle: 'medium', timeStyle: 'short' }),
         s.reason,
         btn('Herstellen', 'ghost', async () => {
           if (!(await confirmDialog('Deze versie herstellen?', `De broncode van DawgAgent wordt teruggezet naar deze back-up en DawgAgent herstart. De huidige versie wordt eerst zelf ook bewaard.`, 'Herstellen'))) return;
