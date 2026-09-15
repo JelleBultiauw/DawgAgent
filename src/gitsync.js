@@ -16,7 +16,7 @@ const APP_DIR = path.join(__dirname, '..');
 // ---------- instellingen ----------
 function defaultProjects() {
   const projects = [
-    { id: 'penuraplicatie', name: 'penuraplicatie', path: APP_DIR, repo: 'git@github.com:JelleBultiauw/penuraplicatie.git', branch: 'main', enabled: true },
+    { id: 'DawgAgent', name: 'DawgAgent', path: APP_DIR, repo: 'git@github.com:JelleBultiauw/DawgAgent.git', branch: 'main', enabled: true },
   ];
   // Een map met Roblox-broncode of een eigen .git: dat is vrijwel zeker het game-project.
   const candidates = [path.join(HOME, 'Documents', 'Robloxgimma'), path.join(HOME, 'Documents', 'HunterX'), path.join(HOME, 'Documents', 'Roblox')];
@@ -81,7 +81,7 @@ const SOFT_SECRETS = [[/(?:api[_-]?key|apikey|secret|token|password|passwd)\s*[:
 // Bestanden die nooit mee mogen (worden automatisch verborgen).
 const SECRET_FILES = /(^|\/)(\.env(\.[^/]*)?|\.envrc|credentials\.json|secrets?\.(json|ya?ml)|service[-_]?account\.json|id_rsa|id_ed25519|\.npmrc|\.pypirc|auth\.json)$|\.(pem|p12|pfx|keystore|jks|key)$/i;
 const GITIGNORE_BLOCK = [
-  '# penuraplicatie: nooit meepushen',
+  '# DawgAgent: nooit meepushen',
   '.env',
   '.env.*',
   '*.pem',
@@ -140,7 +140,7 @@ function ensureGitignore(dir) {
   const missing = GITIGNORE_BLOCK.filter((l) => !l.startsWith('#') && !lines.has(l));
   if (!missing.length) return false;
   const head = cur.trim() ? `${cur.replace(/\s*$/, '')}\n\n` : '';
-  fs.writeFileSync(file, `${head}# penuraplicatie: nooit meepushen\n${missing.join('\n')}\n`);
+  fs.writeFileSync(file, `${head}# DawgAgent: nooit meepushen\n${missing.join('\n')}\n`);
   return true;
 }
 
@@ -245,7 +245,7 @@ async function projectStatus(p) {
     out.secrets = scanFiles(p.path, files);
     out.dirty = files.length > 0;
     out.newRepo = true;
-    out.suggestion = 'Eerste versie via penuraplicatie';
+    out.suggestion = 'Eerste versie via DawgAgent';
     return out;
   }
 
@@ -279,7 +279,7 @@ async function projectStatus(p) {
   out.changes = changes.slice(0, 300);
   out.dirty = changes.length > 0 || out.ahead > 0;
   out.suggestion = out.dirty ? suggestMessage({ ...p, stats: out.stats }) : '';
-  if (out.newRepo) out.suggestion = 'Eerste versie via penuraplicatie';
+  if (out.newRepo) out.suggestion = 'Eerste versie via DawgAgent';
   return out;
 }
 
@@ -336,7 +336,7 @@ async function pushProject(id, { message = '', force = false, branch } = {}) {
     if (!commit.ok && !/nothing to commit|niets toe te voegen|no changes added/i.test(commit.err)) throw new Error(`git commit mislukte: ${commit.err.trim()}`);
     steps.push(`commit (${staged.length} bestanden)`);
   } else if (!messageArg) {
-    subject = 'Automatische sync via penuraplicatie';
+    subject = 'Automatische sync via DawgAgent';
   }
 
   const repoUrl = String(p.repo || '').trim();
@@ -417,9 +417,9 @@ async function autoPush({ sessionId = null, title = '', request = '' } = {}) {
 function suggestMessage(p, { title = '', request = '' } = {}) {
   const stat = p.stats || {};
   const base = String(request || title || '').replace(/\s+/g, ' ').trim();
-  const subject = base ? base.slice(0, 68) : 'Automatische sync via penuraplicatie';
+  const subject = base ? base.slice(0, 68) : 'Automatische sync via DawgAgent';
   const diff = stat.deletions ? `+${stat.insertions || 0} −${stat.deletions}` : `+${stat.insertions || 0}`;
-  return `${subject}\n\n${stat.files || 0} bestand(en) · ${diff}\nvia penuraplicatie · GitHub-sync`;
+  return `${subject}\n\n${stat.files || 0} bestand(en) · ${diff}\nvia DawgAgent · GitHub-sync`;
 }
 
 // ---------- activiteit ----------
@@ -506,7 +506,7 @@ async function ghStatus() {
 
 // Maakt een privé-repo aan op GitHub en pusht de eerste versie.
 // De naam komt uit de ingestelde repo-URL (of de projectnaam), niet uit de mapnaam,
-// zodat "~/Projects/Orka" netjes "penuraplicatie" wordt.
+// zodat de map "~/Projects/DawgAgent" de repo "DawgAgent" krijgt en niet "Orka".
 async function createRepo(id) {
   const p = project(id);
   if (!fs.existsSync(p.path)) throw new Error(`Map niet gevonden: ${p.path}`);
@@ -525,7 +525,7 @@ async function createRepo(id) {
   const secrets = scanFiles(p.path, staged);
   if (secrets.block.length) return { ok: false, blocked: true, secrets, error: 'Geheimen gevonden — er is niets gepusht.' };
   if (!(await git(p.path, ['rev-parse', 'HEAD'])).ok) {
-    const msg = p.firstMessage || `Eerste versie van ${p.name} via penuraplicatie`;
+    const msg = p.firstMessage || `Eerste versie van ${p.name} via DawgAgent`;
     const c = await git(p.path, ['commit', '--allow-empty', '-m', msg, '--no-verify']);
     if (!c.ok) throw new Error(c.err);
   }
@@ -543,7 +543,7 @@ async function createRepo(id) {
   if (!cur.ok) await git(p.path, ['remote', 'add', 'origin', remote]);
   else await git(p.path, ['remote', 'set-url', 'origin', remote]);
   setGitConfig({ projects: getGitConfig().projects.map((x) => (x.id === id ? { ...x, repo: remote, branch } : x)) });
-  const pushed = await pushProject(id, { message: p.firstMessage || `Eerste versie van ${p.name} via penuraplicatie`, branch });
+  const pushed = await pushProject(id, { message: p.firstMessage || `Eerste versie van ${p.name} via DawgAgent`, branch });
   return { ok: pushed.ok !== false, url: `https://github.com/${full}`, remote, branch, already, push: pushed, activity: activity() };
 }
 

@@ -6,7 +6,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' file: data: blob:; font-src 'self' file: data:"
     />
-    <title>penuraplicatie</title>
+    <title>DawgAgent</title>
     <link rel="stylesheet" href="../node_modules/highlight.js/styles/github.min.css" media="(prefers-color-scheme: light)" />
     <link rel="stylesheet" href="../node_modules/highlight.js/styles/github-dark-dimmed.min.css" media="(prefers-color-scheme: dark)" />
     <link rel="stylesheet" href="vendor/xterm.css" />
@@ -49,7 +49,7 @@
             <div id="todos" class="todos" hidden></div>
             <div id="composer" class="composer">
               <div id="pending" class="pending" hidden></div>
-              <textarea id="input" rows="1" placeholder="Vraag penuraplicatie iets, of sleep bestanden hierheen…"></textarea>
+              <textarea id="input" rows="1" placeholder="Vraag DawgAgent iets, of sleep bestanden hierheen…"></textarea>
               <div class="composer-bar">
                 <div class="bar-left">
                   <button id="btn-attach" class="icon-btn round" title="Foto's, bestanden of map toevoegen"></button>
@@ -105,7 +105,7 @@
             <div class="ptaken-wrap">
               <label class="ptoggle">
                 <input type="checkbox" id="ptodos-auto" />
-                <span>penuraplicatie houdt zelf een takenlijst bij</span>
+                <span>DawgAgent houdt zelf een takenlijst bij</span>
               </label>
               <p class="phint">Vraag je iets met meerdere stappen, dan vult hij deze lijst en zie je hier de voortgang. Je kunt de lijst ook zelf bijsturen door erom te vragen.</p>
               <div id="ptodos" class="ptodos"></div>
@@ -117,11 +117,11 @@
               <button id="pb-back" class="icon-btn small" title="Terug"></button>
               <button id="pb-fwd" class="icon-btn small" title="Vooruit"></button>
               <button id="pb-reload" class="icon-btn small" title="Herladen"></button>
-              <input id="pb-url" class="pb-url" spellcheck="false" placeholder="Adres, of vraag het penuraplicatie…" title="Een adres opent hier; al het andere gaat naar penuraplicatie, die het hier voor je opzoekt" />
+              <input id="pb-url" class="pb-url" spellcheck="false" placeholder="Adres, of vraag het DawgAgent…" title="Een adres opent hier; al het andere gaat naar DawgAgent, die het hier voor je opzoekt" />
               <button id="pb-external" class="icon-btn small" title="Openen in Chrome"></button>
             </div>
             <div id="pb-status" class="pb-status" hidden></div>
-            <webview id="pb-view" class="pb-view" src="about:blank" partition="persist:penuraplicatie-paneel"></webview>
+            <webview id="pb-view" class="pb-view" src="about:blank" partition="persist:DawgAgent-paneel"></webview>
           </section>
 
           <section id="pview-terminal" class="pview" hidden>

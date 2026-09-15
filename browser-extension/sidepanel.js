@@ -1,6 +1,6 @@
-// Zijpaneel van penuraplicatie: hier zie je je vragen en de antwoorden van de agent,
+// Zijpaneel van DawgAgent: hier zie je je vragen en de antwoorden van de agent,
 // niets meer. Het denk- en werkproces (welke stappen hij zet, wat hij leest) blijft in
-// penuraplicatie zelf; wat hij het laatst las kun je hier opvragen met "Wat leest hij?".
+// DawgAgent zelf; wat hij het laatst las kun je hier opvragen met "Wat leest hij?".
 // Elke Chrome-tab houdt zijn eigen chat: wissel je van tab, dan wisselt het paneel mee.
 const $ = (id) => document.getElementById(id);
 const feed = $('feed');
@@ -120,7 +120,7 @@ function setStatus(s) {
   busy = agentRunning || !!s.busy;
   paused = !!s.paused;
   dot.className = `dot ${busy && s.connected && !paused ? 'busy' : paused ? 'paused' : s.connected ? 'on' : ''}`;
-  dot.title = paused ? 'gepauzeerd' : s.connected ? `verbonden (poort ${s.port})` : 'geen verbinding met penuraplicatie';
+  dot.title = paused ? 'gepauzeerd' : s.connected ? `verbonden (poort ${s.port})` : 'geen verbinding met DawgAgent';
   pauseBtn.textContent = paused ? '>' : 'ii';
   pauseBtn.title = paused ? 'Doorgaan' : 'Pauzeren';
   stopBtn.hidden = !busy;
@@ -166,7 +166,7 @@ function connect() {
     else if (msg.kind === 'tab') setTab(msg.data || {});
     else if (msg.kind === 'view') showView(msg.data?.text || ''); // alleen onthouden voor "Wat leest hij?"
     // Acties, paginalezingen en tussenstappen komen hier bewust niet in de chat:
-    // dit paneel toont alleen de antwoorden; de rest staat in penuraplicatie.
+    // dit paneel toont alleen de antwoorden; de rest staat in DawgAgent.
     else if (msg.kind === 'push') {
       const d = msg.data || {};
       if (d.kind === 'answer') entry('answer', 'antwoord', String(d.text || '').slice(0, 6000));

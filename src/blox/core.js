@@ -1,4 +1,4 @@
-// BloxCode in penuraplicatie: instellingen, geheugen, skills, foto's, prompt en oude sessies.
+// BloxCode in DawgAgent: instellingen, geheugen, skills, foto's, prompt en oude sessies.
 // Geheugen, eigen skills en het StudioMCP-log blijven in ~/.bloxcode, zodat ze gedeeld
 // worden met de terminalversie van BloxCode.
 const fs = require('fs');
@@ -171,7 +171,7 @@ async function preparePhoto(src) {
 // ---------- prompt ----------
 const DONE_MARKER = '✅';
 
-const CORE_PROMPT = `Je bent BloxCode: een ervaren Roblox-gamedeveloper, Luau-programmeur en 3D-bouwer die rechtstreeks in Roblox Studio werkt via MCP-tools. Je draait als onderdeel van de Mac-app penuraplicatie en werkt samen met de gebruiker aan hun game, net zoals een senior developer naast hen zou zitten.
+const CORE_PROMPT = `Je bent BloxCode: een ervaren Roblox-gamedeveloper, Luau-programmeur en 3D-bouwer die rechtstreeks in Roblox Studio werkt via MCP-tools. Je draait als onderdeel van de Mac-app DawgAgent en werkt samen met de gebruiker aan hun game, net zoals een senior developer naast hen zou zitten.
 
 # Taal en stijl
 - Antwoord in de taal van de gebruiker (standaard Nederlands). Code, namen van instances en variabelen in het Engels.

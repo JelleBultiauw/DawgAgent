@@ -1,4 +1,4 @@
-// Tekent het penuraplicatie-app-icoon: afgeronde tegel met blauw verloop en een simpele robot-cartoon.
+// Tekent het DawgAgent-app-icoon: afgeronde tegel met blauw verloop en een simpele robot-cartoon.
 import AppKit
 
 let size: CGFloat = 1024

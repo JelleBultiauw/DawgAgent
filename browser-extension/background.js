@@ -1,4 +1,4 @@
-// penuraplicatie Browser — Chrome-extensie die de penuraplicatie-app op deze Mac bedient.
+// DawgAgent Browser — Chrome-extensie die de DawgAgent-app op deze Mac bedient.
 //
 // Werking: de app draait een lokale brug op 127.0.0.1 (poort 8798+). Deze service worker
 // long-pollt die brug, voert opdrachten uit in je eigen Chrome en stuurt het resultaat terug.
@@ -94,14 +94,14 @@ const short = (s, n = 60) => {
 
 function setBadge(state) {
   const map = {
-    on: ['', '#2c8a52', 'verbonden met penuraplicatie'],
-    off: ['uit', '#9a9a95', 'geen verbinding — start penuraplicatie'],
+    on: ['', '#2c8a52', 'verbonden met DawgAgent'],
+    off: ['uit', '#9a9a95', 'geen verbinding — start DawgAgent'],
     paused: ['ii', '#c8871a', 'gepauzeerd'],
   };
   const [text, color, title] = map[state] || map.off;
   chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color });
-  chrome.action.setTitle({ title: `penuraplicatie Browser — ${title}` });
+  chrome.action.setTitle({ title: `DawgAgent Browser — ${title}` });
 }
 
 function markConnected() {
@@ -135,7 +135,7 @@ async function detect() {
       clearTimeout(timer);
       if (!res.ok) continue;
       const info = await res.json();
-      if (info && info.app === 'penuraplicatie') return p;
+      if (info && info.app === 'DawgAgent') return p;
     } catch {}
   }
   return null;
@@ -294,21 +294,21 @@ async function handleMessage(msg) {
     return { ok: true };
   }
   if (msg.what === 'ask') {
-    // Vraag uit het zijpaneel: gaat als bericht naar penuraplicatie, met de actieve tab erbij.
+    // Vraag uit het zijpaneel: gaat als bericht naar DawgAgent, met de actieve tab erbij.
     if (paused) return { error: 'De extensie staat gepauzeerd.' };
     if (!port) {
       port = await detect();
-      if (!port) return { error: 'Geen verbinding met penuraplicatie — is de app open?' };
+      if (!port) return { error: 'Geen verbinding met DawgAgent — is de app open?' };
     }
     const res = await fetch(`http://127.0.0.1:${port}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ text: String(msg.text || '').slice(0, 8000), tab: lastTab }),
     });
-    return await res.json().catch(() => ({ error: `penuraplicatie antwoordde met status ${res.status}` }));
+    return await res.json().catch(() => ({ error: `DawgAgent antwoordde met status ${res.status}` }));
   }
   if (msg.what === 'stop') {
-    if (!port) return { ok: false, error: 'Geen verbinding met penuraplicatie.' };
+    if (!port) return { ok: false, error: 'Geen verbinding met DawgAgent.' };
     const res = await fetch(`http://127.0.0.1:${port}/stop`, { method: 'POST', body: '{}' });
     return await res.json().catch(() => ({ ok: res.ok }));
   }
@@ -455,7 +455,7 @@ async function doStatus() {
   const windows = await chrome.windows.getAll();
   const tab = await getActiveTab();
   const lines = [
-    `Verbonden met penuraplicatie (poort ${port}).`,
+    `Verbonden met DawgAgent (poort ${port}).`,
     `${tabs.length} tabbladen in ${windows.length} venster(s).`,
     tab ? `Actief: ${tab.title || '(geen titel)'} — ${tab.url || ''}` : 'Geen actief tabblad.',
   ];

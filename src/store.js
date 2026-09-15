@@ -1,4 +1,4 @@
-// Opslag: instellingen, API-sleutel en chats in ~/Library/Application Support/Orka
+// Opslag: instellingen, API-sleutel en chats in ~/Library/Application Support/DawgAgent
 const { app } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -25,14 +25,14 @@ const DEFAULTS = {
   workspace: os.homedir(),
   computerUse: false,
   hideDuringComputerUse: true,
-  browser: true, // Chrome-extensie "penuraplicatie Browser"
+  browser: true, // Chrome-extensie "DawgAgent Browser"
 
   customInstructions: '',
   connectors: [],
   disabledSkills: [],
   maxSteps: 150,
 
-  autoTodos: false, // laat penuraplicatie standaard een takenlijst bijhouden (Taken-paneel)
+  autoTodos: false, // laat DawgAgent standaard een takenlijst bijhouden (Taken-paneel)
   panelOpen: false, // zijpaneel open bij het starten
   panelTab: 'chat',
   panelWidth: 400,

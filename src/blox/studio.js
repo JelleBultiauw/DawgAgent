@@ -80,7 +80,7 @@ class Studio extends EventEmitter {
         fs.mkdirSync(path.dirname(logPath), { recursive: true });
         transport.stderr?.on('data', (d) => fs.appendFile(logPath, d, () => {}));
       }
-      const client = new Client({ name: 'penuraplicatie-bloxcode', version: '1.0.0' });
+      const client = new Client({ name: 'DawgAgent-bloxcode', version: '1.0.0' });
       await withTimeout(client.connect(transport), 30000, 'Time-out bij verbinden met StudioMCP (30s)');
       const tools = [];
       let cursor;

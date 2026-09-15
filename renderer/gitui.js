@@ -175,7 +175,7 @@ export function createGit(ctx) {
     box.append(
       settingRow(
         'Automatisch pushen',
-        'Aan: na elke wijziging die penuraplicatie maakt gaat alles meteen naar GitHub (zonder te vragen). Uit: alleen als je hier op Pushen klikt.',
+        'Aan: na elke wijziging die DawgAgent maakt gaat alles meteen naar GitHub (zonder te vragen). Uit: alleen als je hier op Pushen klikt.',
         toggleSwitch(Boolean(st?.auto), (on) => setAuto(on)),
       ),
     );
@@ -185,7 +185,7 @@ export function createGit(ctx) {
         h(
           'div',
           { class: 'git-note' },
-          'Nog niet ingelogd bij GitHub. Log één keer in via de knop hiernaast; daarna kan penuraplicatie repo\u2019s aanmaken en pushen.',
+          'Nog niet ingelogd bij GitHub. Log één keer in via de knop hiernaast; daarna kan DawgAgent repo\u2019s aanmaken en pushen.',
           h('div', { style: 'margin-top:8px' }, btn('Inloggen met GitHub', '', () => login(), 'external')),
         ),
       );

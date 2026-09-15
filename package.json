@@ -1,8 +1,8 @@
 {
-  "name": "orka",
-  "productName": "penuraplicatie",
+  "name": "dawgagent",
+  "productName": "DawgAgent",
   "version": "1.0.0",
-  "description": "penuraplicatie — je eigen agent-app op DeepSeek, met bestanden, skills, connectors en computer use.",
+  "description": "DawgAgent — je eigen agent-app op DeepSeek, met bestanden, skills, connectors en computer use.",
   "main": "src/main.js",
   "private": true,
   "scripts": {

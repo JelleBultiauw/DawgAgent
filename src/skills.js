@@ -122,7 +122,7 @@ const SEED = [
     description: 'Gebruik dit wanneer de gebruiker een nieuwe skill wil maken of een terugkerende werkwijze wil vastleggen.',
     instructions: `# Een skill maken
 
-Een skill is een map in de skills-map van penuraplicatie met een \`SKILL.md\`:
+Een skill is een map in de skills-map van DawgAgent met een \`SKILL.md\`:
 
 \`\`\`markdown
 ---

@@ -1,14 +1,29 @@
-// penuraplicatie — hoofdproces (Electron).
+// DawgAgent — hoofdproces (Electron).
 const { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, nativeTheme, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync, execFile } = require('child_process');
 
-app.setName('penuraplicatie');
-// De datamap blijft bewust "Orka": daarin staan je chats, skills, API-sleutel en back-ups.
-app.setPath('userData', path.join(app.getPath('appData'), 'Orka'));
-if (process.env.ORKA_DATA_DIR) app.setPath('userData', process.env.ORKA_DATA_DIR);
+app.setName('DawgAgent');
+// De datamap: hierin staan je chats, skills, API-sleutel en back-ups.
+// De map heette eerst "penuraplicatie" en daarna "Orka"; bij de eerste start wordt
+// hij eenmalig omgedoopt zodat je al je chats en instellingen houdt.
+function appDataDir() {
+  const base = app.getPath('appData');
+  const target = path.join(base, 'DawgAgent');
+  if (process.env.DAWGAGENT_DATA_DIR) return process.env.DAWGAGENT_DATA_DIR;
+  if (process.env.ORKA_DATA_DIR) return process.env.ORKA_DATA_DIR;
+  const older = ['Orka', 'penuraplicatie']; // oude namen van de datamap
+  for (const old of older) {
+    const from = path.join(base, old);
+    try {
+      if (fs.existsSync(from) && !fs.existsSync(target)) fs.renameSync(from, target);
+    } catch {}
+  }
+  return target;
+}
+app.setPath('userData', appDataDir());
 
 // Apps die vanuit Finder starten krijgen een minimale PATH; neem die van de login-shell over.
 try {
@@ -247,7 +262,7 @@ function createWindow() {
     height: 840,
     minWidth: 760,
     minHeight: 540,
-    title: 'penuraplicatie',
+    title: 'DawgAgent',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 19 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a19' : '#ffffff',
@@ -310,7 +325,7 @@ handle('app:openInFinder', (p) => {
     }
   };
   // 1) het pad zoals het er staat, 2) anders het laatste stuk na elke spatie weglaten
-  // ("~/Library/Application Support/Orka voor je data" → het bestaande deel),
+  // ("~/Library/Application Support/DawgAgent voor je data" → het bestaande deel),
   // 3) anders de dichtstbijzijnde bestaande map erboven.
   let cand = target;
   for (;;) {
@@ -797,7 +812,7 @@ handle('blox:doctor', async () => {
   const cfg = store.getConfig();
   const rows = [];
   const add = (check, ok, detail) => rows.push({ check, ok, detail });
-  add('API-sleutel', Boolean(store.getApiKey()), store.getApiKey() ? 'opgeslagen in penuraplicatie' : 'niet ingesteld — Instellingen → Model & API');
+  add('API-sleutel', Boolean(store.getApiKey()), store.getApiKey() ? 'opgeslagen in DawgAgent' : 'niet ingesteld — Instellingen → Model & API');
   if (store.getApiKey()) {
     try {
       const models = await testKey({ cfg, apiKey: store.getApiKey() });

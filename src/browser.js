@@ -1,4 +1,4 @@
-// Brug tussen penuraplicatie en de Chrome-extensie ("penuraplicatie Browser").
+// Brug tussen DawgAgent en de Chrome-extensie ("DawgAgent Browser").
 //
 // De app luistert op 127.0.0.1 (poort 8798 en verder). De extensie long-pollt /poll,
 // voert de opdracht uit in Chrome en stuurt het antwoord naar /result. Alle antwoorden
@@ -176,17 +176,17 @@ class BrowserBridge extends EventEmitter {
     const url = new URL(req.url, 'http://127.0.0.1');
     const p = url.pathname;
 
-    if (p === '/ping') return this.respond(res, 200, { app: 'penuraplicatie', port: this.port, pid: process.pid });
+    if (p === '/ping') return this.respond(res, 200, { app: 'DawgAgent', port: this.port, pid: process.pid });
 
     if (p === '/status') return this.respond(res, 200, this.status());
 
     if (p === '/wake') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(
-        `<!doctype html><meta charset="utf-8"><title>penuraplicatie</title>
+        `<!doctype html><meta charset="utf-8"><title>DawgAgent</title>
 <body style="font:15px -apple-system,system-ui,sans-serif;padding:40px;max-width:640px;margin:auto;color:#1a1a19">
-<h2>penuraplicatie</h2>
-<p>Deze tab wordt automatisch gesloten — de Chrome-extensie van penuraplicatie maakt verbinding.</p>
+<h2>DawgAgent</h2>
+<p>Deze tab wordt automatisch gesloten — de Chrome-extensie van DawgAgent maakt verbinding.</p>
 <p style="color:#8a8a86">Blijft dit staan? Dan is de extensie nog niet geladen. Open dan <code>chrome://extensions</code>, zet Ontwikkelaarsmodus aan en kies "Uitgepakte extensie laden" met de map <code>${EXT_DIR.replace(/</g, '&lt;')}</code>.</p></body>`,
       );
     }
@@ -281,7 +281,7 @@ class BrowserBridge extends EventEmitter {
         } catch {}
         const text = String(body.text || '').trim();
         if (!text) return this.respond(res, 400, { error: 'Geen vraag ontvangen.' });
-        if (!this.listenerCount('ask')) return this.respond(res, 503, { error: 'penuraplicatie is nog niet klaar met opstarten.' });
+        if (!this.listenerCount('ask')) return this.respond(res, 503, { error: 'DawgAgent is nog niet klaar met opstarten.' });
         this.emit('ask', { text, tab: body.tab || this.tab });
         this.respond(res, 200, { ok: true });
       });
@@ -332,7 +332,7 @@ class BrowserBridge extends EventEmitter {
       const ok = await this.ensureConnected();
       if (!ok) {
         throw new Error(
-          'De Chrome-extensie "penuraplicatie Browser" is niet verbonden. Open Chrome (het tabblad dat even langskomt sluit zichzelf) of laad de extensie via Instellingen → Browser.',
+          'De Chrome-extensie "DawgAgent Browser" is niet verbonden. Open Chrome (het tabblad dat even langskomt sluit zichzelf) of laad de extensie via Instellingen → Browser.',
         );
       }
     } else if (!this.connected) {

@@ -1,4 +1,4 @@
-// Back-ups van penuraplicatie's eigen broncode, zodat zelf-aanpassingen altijd terug te draaien zijn.
+// Back-ups van DawgAgent's eigen broncode, zodat zelf-aanpassingen altijd terug te draaien zijn.
 const fs = require('fs');
 const path = require('path');
 const { PATHS, readJson, writeJson } = require('./store');

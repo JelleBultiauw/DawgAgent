@@ -197,6 +197,8 @@ kbd { font: 11px var(--font); color: var(--faint); margin-left: auto; }
 /* ---------- empty state ---------- */
 .empty { margin: auto; padding: 9vh 0 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .logo { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(145deg, #3b6cf0, #1b2f6b); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 24px rgba(44, 95, 217, 0.25); }
+.logo.photo { background: none; box-shadow: none; }
+.app-logo { display: block; border-radius: 16px; object-fit: cover; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
 .empty h1 { font-size: 26px; font-weight: 650; margin: 8px 0 0; letter-spacing: -0.01em; }
 .empty p { margin: 0; color: var(--muted); max-width: min(560px, 100%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; justify-content: center; }
