@@ -544,14 +544,24 @@ handle('attach:pick', async (sessionId, kind) => {
 });
 handle('attach:paths', async (sessionId, paths) => {
   const dir = store.filesDir(sessionId);
-  const atts = await Promise.all(paths.map((p) => attachments.processPath(p, dir)));
+  // Alleen wat echt bestaat; een geplakt pad dat nergens heen wijst mag geen foutmelding geven.
+  const found = (paths || []).filter((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+  const atts = await Promise.all(found.map((p) => attachments.processPath(p, dir)));
   return openStudyMaterial(sessionId, atts);
 });
 handle('attach:data', async (sessionId, name, base64) => {
   const dir = store.filesDir(sessionId);
-  const file = path.join(dir, `${Date.now()}-${path.basename(name || 'plakken.png')}`);
+  const pretty = path.basename(name || 'plakken.png');
+  const file = path.join(dir, `${Date.now()}-${pretty}`);
   fs.writeFileSync(file, Buffer.from(base64, 'base64'));
   const att = await attachments.processPath(file, dir);
+  att.name = pretty; // de gebruiker hoeft de tijdstempel van het bestand niet te zien
   return openStudyMaterial(sessionId, [att]);
 });
 

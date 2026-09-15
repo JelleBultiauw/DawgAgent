@@ -3,7 +3,7 @@
 Je eigen agent-app op DeepSeek — vergelijkbaar met Claude Code of Codex, maar met een simpele Mac-interface.
 
 - **Chatten & laten werken**: DawgAgent leest en bewerkt bestanden, draait commando’s, zoekt op het web en houdt een takenlijst bij.
-- **Uploaden**: foto’s, spreadsheets (Excel/CSV/Numbers, alle tabbladen), PDF, Word, code en hele mappen. Via de **+**-knop, slepen of plakken (⌘V).
+- **Uploaden**: foto’s, spreadsheets (Excel/CSV/Numbers, alle tabbladen), PDF, Word, code en hele mappen. Via de **+**-knop, slepen of plakken (⌘V). Wat je toevoegt zie je als **thumbnail** boven het invoerveld (foto’s) of als bestandslabel, met een kruisje om het weg te halen — plakken kan ook met een screenshot (⌃⇧⌘4) of een foto die je in Finder met ⌘C kopieerde.
 - **Skills**: herbruikbare instructies (map met `SKILL.md`, zelfde formaat als Claude Code). Importeren, zelf maken, of DawgAgent er een laten schrijven.
 - **Connectors**: MCP-servers, lokaal (`npx …`) of via URL. JSON uit Claude Desktop/Cursor kun je direct plakken.
 - **Computer use**: DawgAgent ziet je scherm (screenshot + tekstherkenning) en bedient muis en toetsenbord. Noodstop: **⌘⇧⎋**.

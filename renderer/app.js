@@ -850,18 +850,25 @@ function userBubble(m) {
 }
 
 function attChip(a, onRemove) {
-  if (a.loading) return h('div', { class: 'att loading' }, 'Bezig met verwerken…');
+  if (!a || a.loading) return h('div', { class: 'att loading' }, 'Bezig met verwerken…');
+  const name = String(a.name || '');
   const remove = onRemove ? h('button', { class: 'att-remove', title: 'Verwijderen', onclick: onRemove }, icon('x', 11)) : null;
   if (a.kind === 'image') {
-    return h('div', { class: 'att image', title: a.name }, h('img', { src: fileUrl(a.path), onclick: () => openImage(a.path) }), remove);
+    return h(
+      'div',
+      { class: 'att image', title: name },
+      h('img', { src: fileUrl(a.path), onclick: () => openImage(a.path) }),
+      h('div', { class: 'att-caption' }, name),
+      remove,
+    );
   }
   const ic = { folder: 'folder', sheet: 'sheet', pdf: 'file', doc: 'file' }[a.kind] || 'file';
-  const meta = a.kind === 'folder' ? 'Map' : `${(a.name.split('.').pop() || '').toUpperCase()} · ${fmtSize(a.size)}`;
+  const meta = a.kind === 'folder' ? 'Map' : `${(name.split('.').pop() || '').toUpperCase()} · ${fmtSize(a.size)}`;
   return h(
     'div',
     { class: 'att', title: a.path, ondblclick: () => call('app:reveal', a.path) },
     h('span', { class: 'att-icon' }, icon(ic, 16)),
-    h('span', { style: 'min-width:0' }, h('div', { class: 'att-name' }, a.name), h('div', { class: 'att-meta' }, meta)),
+    h('span', { style: 'min-width:0' }, h('div', { class: 'att-name' }, name), h('div', { class: 'att-meta' }, meta)),
     remove,
   );
 }
@@ -1371,6 +1378,21 @@ function renderPending() {
     );
   }
   renderSendState();
+}
+
+// Eén geplakt of gesleept bestand klaarzetten: via het pad als het op schijf staat,
+// anders via de bytes (dat is wat je krijgt bij een screenshot of "Afbeelding kopiëren").
+async function attachFromFile(sid, f) {
+  const p = api.pathForFile ? api.pathForFile(f) : null;
+  if (p) return addAttachments(call('attach:paths', sid, [p]));
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, '');
+  const generic = !f.name || /^(image|blob|afbeelding)\.?/i.test(f.name);
+  const name = generic ? `geplakt-${stamp}.${ext}` : f.name;
+  return addAttachments(call('attach:data', sid, name, btoa(bin)));
 }
 
 async function addAttachments(promise) {
@@ -3094,21 +3116,26 @@ function bindUI() {
     }
   });
   el.addEventListener('paste', async (e) => {
-    const files = [...(e.clipboardData?.files || [])];
-    if (!files.length) return;
-    e.preventDefault();
+    const cd = e.clipboardData;
+    if (!cd) return;
     const sid = state.session.id;
-    for (const f of files) {
-      const p = api.pathForFile(f);
-      if (p) addAttachments(call('attach:paths', sid, [p]));
-      else {
-        const bytes = new Uint8Array(await f.arrayBuffer());
-        let bin = '';
-        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-        const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-        addAttachments(call('attach:data', sid, f.name || `geplakt.${ext}`, btoa(bin)).then((a) => [a]));
-      }
+    // Foto's en bestanden van het klembord: een screenshot, "Afbeelding kopiëren" in de browser,
+    // of een bestand dat je in Finder hebt gekopieerd.
+    const picked = [...(cd.items || [])].filter((i) => i.kind === 'file').map((i) => i.getAsFile()).filter(Boolean);
+    const files = picked.length ? picked : [...(cd.files || [])];
+    if (files.length) {
+      e.preventDefault();
+      for (const f of files) await attachFromFile(sid, f);
+      return;
     }
+    // Een gekopieerd bestand plakt als tekst met een pad. Bestaat het echt, dan wordt het een bijlage.
+    const text = (cd.getData('text/uri-list') || cd.getData('text/plain') || '').trim();
+    if (!text || /[\r\n]/.test(text) || !/^(file:\/\/|\/|~\/)/.test(text)) return;
+    e.preventDefault();
+    const path = text.replace(/^file:\/\//, '').split('#')[0].replace(/%20/g, ' ');
+    const atts = await call('attach:paths', sid, [path]);
+    if (atts?.length) addAttachments(Promise.resolve(atts));
+    else document.execCommand('insertText', false, text); // geen bestaand bestand: gewoon als tekst plakken
   });
 
   $('#btn-send').addEventListener('click', sendMessage);
@@ -3168,9 +3195,10 @@ function bindUI() {
     e.preventDefault();
     depth = 0;
     $('#drop').hidden = true;
-    const paths = [...(e.dataTransfer?.files || [])].map((f) => api.pathForFile(f)).filter(Boolean);
-    if (!paths.length) return;
-    if (state.view === 'skills') {
+    const files = [...(e.dataTransfer?.files || [])];
+    const paths = files.map((f) => api.pathForFile(f)).filter(Boolean);
+    if (!paths.length && !files.length) return;
+    if (state.view === 'skills' && paths.length) {
       try {
         const names = await call('skills:importPaths', paths);
         toast(`Geïmporteerd: ${names.join(', ')}`);
@@ -3181,7 +3209,8 @@ function bindUI() {
       return;
     }
     if (state.view !== 'chat') showView('chat');
-    addAttachments(call('attach:paths', state.session.id, paths));
+    if (paths.length) addAttachments(call('attach:paths', state.session.id, paths));
+    else for (const f of files) await attachFromFile(state.session.id, f); // uit een browser gesleept: geen bestand op schijf
   });
 
   window.addEventListener('resize', closeMenu);
