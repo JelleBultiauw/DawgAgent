@@ -1094,6 +1094,13 @@ function onAgentEvent(ev) {
       setWorking(`${toolLabel(ev.name)}…`);
       break;
     case 'retry':
+      // Het verzoek begint opnieuw: half binnengekomen tekst weghalen, anders staat die er dubbel.
+      if (ev.reset && state.live) {
+        if (state.live.raf) cancelAnimationFrame(state.live.raf), (state.live.raf = 0);
+        state.live.text?.remove();
+        state.live.reasoning?.remove();
+        Object.assign(state.live, { text: null, textBuf: '', reasoning: null, reasoningBuf: '' });
+      }
       setWorking(`Verbinding hapert — opnieuw proberen (${ev.attempt})…`);
       break;
     case 'assistant_done': {
@@ -2544,6 +2551,12 @@ function panelAgentEvent(ev) {
       pSetWorking(`${toolLabel(ev.name)}…`);
       break;
     case 'retry':
+      if (ev.reset && P.live) {
+        if (P.live.raf) cancelAnimationFrame(P.live.raf), (P.live.raf = 0);
+        P.live.text?.remove();
+        P.live.reasoning?.remove();
+        Object.assign(P.live, { text: null, textBuf: '', reasoning: null, reasoningBuf: '' });
+      }
       pSetWorking(`Verbinding hapert — opnieuw proberen (${ev.attempt})…`);
       break;
     case 'assistant_done': {

@@ -1,8 +1,11 @@
 // Streaming client voor de DeepSeek (OpenAI-compatibele) Chat Completions API.
-const { httpFetch, describeNetError } = require('./http');
+const { httpFetch, describeNetError, isTransientNetError, noteNetError } = require('./http');
 
 // Als er zo lang geen echte data binnenkomt (keep-alives tellen niet), wordt het verzoek opnieuw gedaan.
 const STALL_MS = 150000;
+// Hoe vaak een verzoek opnieuw mag na een netwerkfout (bv. net::ERR_NETWORK_CHANGED).
+const MAX_NET_RETRIES = 5;
+const netBackoff = (attempt) => Math.min(1000 * 2 ** attempt, 15000);
 
 class StallError extends Error {}
 
@@ -136,9 +139,10 @@ async function streamChat({ cfg, apiKey, body, signal, onEvent, out, stallMs = S
       } catch (e) {
         if (stalled()) throw new StallError();
         if (signal?.aborted) throw e;
-        if (attempt < 3) {
-          onEvent?.({ type: 'retry', attempt: attempt + 1, reason: describeNetError(e) });
-          await sleep(1500 * 2 ** attempt, signal);
+        noteNetError(e);
+        if (attempt < MAX_NET_RETRIES) {
+          onEvent?.({ type: 'retry', attempt: attempt + 1, reason: describeNetError(e), reset: true });
+          await sleep(netBackoff(attempt), signal);
           continue;
         }
         throw new Error(`Kan de API niet bereiken: ${describeNetError(e)}`);
@@ -159,12 +163,20 @@ async function streamChat({ cfg, apiKey, body, signal, onEvent, out, stallMs = S
         });
       } catch (e) {
         if (stalled()) throw new StallError();
+        if (signal?.aborted) throw e;
+        // Verbinding viel weg midden in het antwoord (bv. net::ERR_NETWORK_CHANGED): het hele verzoek opnieuw.
+        if (isTransientNetError(e) && attempt < MAX_NET_RETRIES) {
+          noteNetError(e);
+          onEvent?.({ type: 'retry', attempt: attempt + 1, reason: describeNetError(e), reset: true });
+          await sleep(netBackoff(attempt), signal);
+          continue;
+        }
         throw e;
       }
     } catch (e) {
       if (!(e instanceof StallError)) throw e;
       if (attempt < 2) {
-        onEvent?.({ type: 'retry', attempt: attempt + 1, reason: 'DeepSeek reageert niet meer' });
+        onEvent?.({ type: 'retry', attempt: attempt + 1, reason: 'DeepSeek reageert niet meer', reset: true });
         continue;
       }
       throw new Error(
