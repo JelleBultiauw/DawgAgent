@@ -477,20 +477,28 @@ handle('sessions:setStudy', async (id, mode) => {
   if (next !== 'off') {
     // Staat er al materiaal in deze chat? Zet het meteen in het zijpaneel.
     const file = study.latestDocument(s);
-    if (file) opened = await study.openInPanel({ sessionId: id, file, panelRun: (op, args) => panel.run(op, args, 40000) });
+    if (file) {
+      try {
+        opened = await study.openInPanel({ sessionId: id, file, panelRun: (op, args) => panel.run(op, args, 40000) });
+      } catch {}
+    }
   }
   return { mode: next, opened };
 });
 
 // Lesmateriaal dat in een study-chat wordt toegevoegd, gaat direct naar het paneel.
 async function openStudyMaterial(sessionId, atts) {
-  const s = store.loadSession(sessionId);
-  if (!s || study.modeFor(s) === 'off') return atts;
-  const doc = (atts || []).find((a) => a?.path && a.kind !== 'folder' && study.isViewable(a.path));
-  if (!doc) return atts;
-  const out = await study.openInPanel({ sessionId, file: doc.path, panelRun: (op, args) => panel.run(op, args, 40000) });
-  if (out && !out.unsupported) doc.panel = { title: out.title, url: out.url, pages: out.pages || null, kind: out.kind, unrenderable: out.unrenderable || 0, warning: out.warning || null };
-  else if (out?.unsupported) doc.panel = { error: out.unsupported };
+  try {
+    const s = store.loadSession(sessionId);
+    if (!s || study.modeFor(s) === 'off') return atts;
+    const doc = (atts || []).find((a) => a?.path && a.kind !== 'folder' && study.isViewable(a.path));
+    if (!doc) return atts;
+    const out = await study.openInPanel({ sessionId, file: doc.path, panelRun: (op, args) => panel.run(op, args, 40000) });
+    if (out && !out.unsupported) doc.panel = { title: out.title, url: out.url, pages: out.pages || null, kind: out.kind, unrenderable: out.unrenderable || 0, warning: out.warning || null };
+    else if (out?.unsupported) doc.panel = { error: out.unsupported };
+  } catch (e) {
+    // Het paneel is bijzaak: een bron die niet te tonen is mag het toevoegen nooit blokkeren.
+  }
   return atts;
 }
 
