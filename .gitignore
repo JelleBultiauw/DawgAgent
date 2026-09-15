@@ -1,0 +1,12 @@
+node_modules/
+renderer/vendor/
+.DS_Store
+
+# penuraplicatie: nooit meepushen
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials.json
+service-account.json

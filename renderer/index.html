@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' file: data: blob:; font-src 'self' file: data:"
+    />
+    <title>penuraplicatie</title>
+    <link rel="stylesheet" href="../node_modules/highlight.js/styles/github.min.css" media="(prefers-color-scheme: light)" />
+    <link rel="stylesheet" href="../node_modules/highlight.js/styles/github-dark-dimmed.min.css" media="(prefers-color-scheme: dark)" />
+    <link rel="stylesheet" href="vendor/xterm.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="blox.css" />
+    <link rel="stylesheet" href="git.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="sidebar-top drag"></div>
+        <div class="sidebar-actions">
+          <button id="btn-new" class="side-btn primary-side"><span class="ic-slot" data-icon="plus"></span>Nieuwe chat<kbd>⌘N</kbd></button>
+          <button class="side-btn" data-view="skills"><span class="ic-slot" data-icon="sparkles"></span>Skills</button>
+          <button class="side-btn" data-view="connectors"><span class="ic-slot" data-icon="plug"></span>Connectors</button>
+          <button id="btn-git" class="side-btn git-side" title="GitHub-sync: alles wat je hebt gedaan per project naar GitHub"><span class="ic-slot" data-icon="git"></span>GitHub<span id="git-dot" class="blox-dot"></span></button>
+          <button id="btn-blox" class="side-btn blox-side" title="BloxCode aan/uit voor deze chat (Roblox Studio)"><span class="ic-slot" data-icon="cube"></span>BloxCode<span id="blox-dot" class="blox-dot"></span></button>
+        </div>
+        <div id="chat-list" class="chat-list"></div>
+        <div class="sidebar-bottom">
+          <div id="git-mini" class="git-mini" title="Wijzigingen van de laatste weken — klik voor details"></div>
+          <button class="side-btn" data-view="settings"><span class="ic-slot" data-icon="settings"></span>Instellingen</button>
+        </div>
+      </aside>
+
+      <main id="main">
+        <header class="topbar drag">
+          <div id="topbar-title" class="topbar-title"></div>
+          <div class="topbar-right no-drag">
+            <span id="usage" class="usage" hidden></span>
+            <button id="btn-panel" class="icon-btn panel-toggle" title="Zijpaneel: zijchat, taken, browser en terminal (⌘⇧B)"><span class="ic-slot" data-icon="columns"></span></button>
+          </div>
+        </header>
+
+        <section id="view-chat" class="view">
+          <div id="scroller" class="scroller">
+            <div id="thread" class="thread"></div>
+          </div>
+          <div class="composer-wrap">
+            <div id="todos" class="todos" hidden></div>
+            <div id="composer" class="composer">
+              <div id="pending" class="pending" hidden></div>
+              <textarea id="input" rows="1" placeholder="Vraag penuraplicatie iets, of sleep bestanden hierheen…"></textarea>
+              <div class="composer-bar">
+                <div class="bar-left">
+                  <button id="btn-attach" class="icon-btn round" title="Foto's, bestanden of map toevoegen"></button>
+                  <button id="chip-workspace" class="chip" title="Werkmap"></button>
+                  <button id="chip-mode" class="chip" title="Goedkeuring"></button>
+                  <button id="chip-blox" class="chip blox-chip" title="BloxCode (Roblox Studio)"></button>
+                  <button id="chip-computer" class="chip" title="Computer use"></button>
+                </div>
+                <div class="bar-right">
+                  <button id="chip-model" class="chip" title="Model"></button>
+                  <button id="btn-send" class="send" title="Versturen"></button>
+                </div>
+              </div>
+            </div>
+            <div id="composer-hint" class="composer-hint"></div>
+          </div>
+        </section>
+
+        <section id="view-skills" class="view page" hidden></section>
+        <section id="view-connectors" class="view page" hidden></section>
+        <section id="view-settings" class="view page" hidden></section>
+      </main>
+
+      <aside id="panel" hidden>
+        <div id="panel-resizer" class="panel-resizer" title="Breedte aanpassen"></div>
+        <header class="panel-head drag">
+          <div id="panel-tabs" class="panel-tabs no-drag">
+            <button class="ptab" data-ptab="chat">Zijchat</button>
+            <button class="ptab" data-ptab="taken">Taken</button>
+            <button class="ptab" data-ptab="browser">Browser</button>
+            <button class="ptab" data-ptab="terminal">Terminal</button>
+          </div>
+          <button id="panel-close" class="icon-btn small no-drag" title="Zijpaneel sluiten (⌘⇧B)"></button>
+        </header>
+
+        <div class="panel-body">
+          <section id="pview-chat" class="pview">
+            <div id="pchat-note" class="pchat-note"></div>
+            <div id="pchat-scroller" class="pscroller">
+              <div id="pchat-thread" class="pthread"></div>
+            </div>
+            <div class="pcomposer">
+              <textarea id="pchat-input" rows="1" placeholder="Vraag over deze chat…"></textarea>
+              <div class="pcomposer-bar">
+                <button id="pchat-new" class="pmini">Nieuw gesprek</button>
+                <span class="pcomposer-hint" id="pchat-hint"></span>
+                <button id="pchat-send" class="send sm"></button>
+              </div>
+            </div>
+          </section>
+
+          <section id="pview-taken" class="pview" hidden>
+            <div class="ptaken-wrap">
+              <label class="ptoggle">
+                <input type="checkbox" id="ptodos-auto" />
+                <span>penuraplicatie houdt zelf een takenlijst bij</span>
+              </label>
+              <p class="phint">Vraag je iets met meerdere stappen, dan vult hij deze lijst en zie je hier de voortgang. Je kunt de lijst ook zelf bijsturen door erom te vragen.</p>
+              <div id="ptodos" class="ptodos"></div>
+            </div>
+          </section>
+
+          <section id="pview-browser" class="pview" hidden>
+            <div class="pbrowser-bar">
+              <button id="pb-back" class="icon-btn small" title="Terug"></button>
+              <button id="pb-fwd" class="icon-btn small" title="Vooruit"></button>
+              <button id="pb-reload" class="icon-btn small" title="Herladen"></button>
+              <input id="pb-url" class="pb-url" spellcheck="false" placeholder="Adres, of vraag het penuraplicatie…" title="Een adres opent hier; al het andere gaat naar penuraplicatie, die het hier voor je opzoekt" />
+              <button id="pb-external" class="icon-btn small" title="Openen in Chrome"></button>
+            </div>
+            <div id="pb-status" class="pb-status" hidden></div>
+            <webview id="pb-view" class="pb-view" src="about:blank" partition="persist:penuraplicatie-paneel"></webview>
+          </section>
+
+          <section id="pview-terminal" class="pview" hidden>
+            <div class="pterm-bar">
+              <span id="pterm-info" class="pterm-info">shell</span>
+              <button id="pterm-restart" class="icon-btn small" title="Nieuwe shell"></button>
+              <button id="pterm-clear" class="icon-btn small" title="Scherm wissen"></button>
+            </div>
+            <div id="pterm" class="pterm"></div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <div id="menu" class="menu" hidden></div>
+    <div id="modal" class="modal-backdrop" hidden><div class="modal"></div></div>
+    <div id="drop" class="drop-overlay" hidden><div class="drop-inner">Laat los om toe te voegen</div></div>
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

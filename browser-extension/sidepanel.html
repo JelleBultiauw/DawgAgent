@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <title>penuraplicatie</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --panel: #fafaf9;
+        --line: #e6e6e3;
+        --text: #1a1a19;
+        --muted: #6b6b68;
+        --faint: #8f8f8b;
+        --accent: #3b6cf0;
+        --ok: #2c8a52;
+        --warn: #c8871a;
+        --danger: #b23c3c;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a1a19;
+          --panel: #232322;
+          --line: #333332;
+          --text: #ececeb;
+          --muted: #a8a8a4;
+          --faint: #7c7c78;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        flex-direction: column;
+        font: 13px/1.45 -apple-system, system-ui, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 1px solid var(--line); }
+      header img { width: 20px; height: 20px; border-radius: 6px; }
+      header h1 { font-size: 13.5px; font-weight: 620; margin: 0; flex: 1; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+      .dot.on { background: var(--ok); }
+      .dot.paused { background: var(--warn); }
+      .dot.busy { background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: 0.35; } }
+      .icon-btn {
+        border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+        border-radius: 7px; padding: 3px 7px; font: inherit; font-size: 12px; cursor: pointer;
+      }
+      .icon-btn:hover { background: var(--bg); color: var(--text); }
+
+      .tabcard { margin: 10px 12px 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 11px; padding: 9px 10px; }
+      .tabcard .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); margin-bottom: 4px; }
+      .tabcard .title { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tabcard .url { font: 11.5px/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tabcard .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+      button.act {
+        border: 1px solid var(--line); background: var(--bg); color: var(--text);
+        border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 12.5px; cursor: pointer;
+      }
+      button.act:hover { border-color: var(--accent); color: var(--accent); }
+      button.act.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.act.primary:hover { color: #fff; opacity: 0.92; }
+      button.act.danger { color: var(--danger); }
+      button.act:disabled { opacity: 0.45; cursor: default; }
+
+      .feed { flex: 1; overflow-y: auto; padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+      .entry { border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; background: var(--panel); }
+      .entry .head { display: flex; align-items: baseline; gap: 7px; font-size: 11.5px; color: var(--faint); }
+      .entry .head b { color: var(--muted); font-weight: 560; }
+      .entry .body { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+      .entry.tool .body, .entry.view .body { font: 11.5px/1.5 var(--mono); color: var(--muted); }
+      .entry.answer { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+      .entry.error { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+      .entry.error .body { color: var(--danger); }
+      .entry.chat { background: transparent; border-style: dashed; color: var(--faint); }
+      .entry.user { border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); background: var(--bg); }
+      .entry.note { background: transparent; border-style: dashed; }
+      .entry.note .body { color: var(--muted); }
+      .entry.working { border: none; background: transparent; color: var(--faint); font-size: 12px; padding: 2px; animation: pulse 1.6s ease-in-out infinite; }
+      .entry .more { color: var(--accent); cursor: pointer; font-size: 11.5px; }
+      .entry.clip .body { max-height: 96px; overflow: hidden; }
+      .ask { display: flex; gap: 6px; padding: 8px 12px 2px; border-top: 1px solid var(--line); background: var(--bg); }
+      .ask input {
+        flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+        border-radius: 9px; padding: 7px 9px; font: inherit;
+      }
+      .ask input:focus { outline: none; border-color: var(--accent); }
+      .ask button {
+        border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 9px;
+        padding: 0 11px; font: inherit; font-size: 12.5px; cursor: pointer;
+      }
+      .ask button:disabled { opacity: 0.45; cursor: default; }
+      .hint { padding: 4px 12px 10px; font-size: 11px; color: var(--faint); }
+      code { font: 11px var(--mono); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="icons/32.png" alt="" />
+      <h1>penuraplicatie</h1>
+      <span id="dot" class="dot" title="status"></span>
+      <button id="pause" class="icon-btn" title="Pauzeren">ii</button>
+    </header>
+
+    <div class="tabcard">
+      <div class="label">Je kijkt naar</div>
+      <div class="title" id="tabTitle">—</div>
+      <div class="url" id="tabUrl"></div>
+      <div class="row">
+        <button class="act primary" id="summarize">Vat deze pagina samen</button>
+        <button class="act" id="what">Wat leest hij?</button>
+        <button class="act danger" id="stop" hidden>Stop</button>
+      </div>
+    </div>
+
+    <div class="feed" id="feed"></div>
+
+    <div class="ask">
+      <input id="askInput" placeholder="Vraag iets over deze pagina…" />
+      <button id="askSend">Vraag</button>
+    </div>
+    <div class="hint">Elke tab houdt hier zijn eigen chat. Hier zie je alleen de antwoorden — het denkproces en alle stappen staan in penuraplicatie zelf.</div>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
