@@ -93,12 +93,6 @@ function ensureHud() {
   hud.setContentProtection(true);
   hud.setIgnoreMouseEvents(false);
   hud.loadFile(path.join(RENDERER, 'hud.html'));
-  // De balkjes-tekst volgt de naam van de app (DawgAgent of DawgSecretAgent).
-  hud.webContents.on('did-finish-load', () => {
-    const label = `${store.agentName()} bestuurt je computer`;
-    hud.setTitle(label);
-    hud.webContents.executeJavaScript(`document.querySelector('.title').textContent = ${JSON.stringify(label)}`).catch(() => {});
-  });
   return hud;
 }
 
@@ -268,7 +262,7 @@ function createWindow() {
     height: 840,
     minWidth: 760,
     minHeight: 540,
-    title: store.agentName(),
+    title: 'DawgAgent',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 19 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a19' : '#ffffff',
@@ -818,7 +812,7 @@ handle('blox:doctor', async () => {
   const cfg = store.getConfig();
   const rows = [];
   const add = (check, ok, detail) => rows.push({ check, ok, detail });
-  add('API-sleutel', Boolean(store.getApiKey()), store.getApiKey() ? `opgeslagen in ${store.agentName()}` : 'niet ingesteld — Instellingen → Model & API');
+  add('API-sleutel', Boolean(store.getApiKey()), store.getApiKey() ? 'opgeslagen in DawgAgent' : 'niet ingesteld — Instellingen → Model & API');
   if (store.getApiKey()) {
     try {
       const models = await testKey({ cfg, apiKey: store.getApiKey() });

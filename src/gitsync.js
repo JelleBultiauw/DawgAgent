@@ -245,7 +245,7 @@ async function projectStatus(p) {
     out.secrets = scanFiles(p.path, files);
     out.dirty = files.length > 0;
     out.newRepo = true;
-    out.suggestion = `Eerste versie via ${store.agentName()}`;
+    out.suggestion = 'Eerste versie via DawgAgent';
     return out;
   }
 
@@ -279,7 +279,7 @@ async function projectStatus(p) {
   out.changes = changes.slice(0, 300);
   out.dirty = changes.length > 0 || out.ahead > 0;
   out.suggestion = out.dirty ? suggestMessage({ ...p, stats: out.stats }) : '';
-  if (out.newRepo) out.suggestion = `Eerste versie via ${store.agentName()}`;
+  if (out.newRepo) out.suggestion = 'Eerste versie via DawgAgent';
   return out;
 }
 
@@ -336,7 +336,7 @@ async function pushProject(id, { message = '', force = false, branch } = {}) {
     if (!commit.ok && !/nothing to commit|niets toe te voegen|no changes added/i.test(commit.err)) throw new Error(`git commit mislukte: ${commit.err.trim()}`);
     steps.push(`commit (${staged.length} bestanden)`);
   } else if (!messageArg) {
-    subject = `Automatische sync via ${store.agentName()}`;
+    subject = 'Automatische sync via DawgAgent';
   }
 
   const repoUrl = String(p.repo || '').trim();
@@ -417,9 +417,9 @@ async function autoPush({ sessionId = null, title = '', request = '' } = {}) {
 function suggestMessage(p, { title = '', request = '' } = {}) {
   const stat = p.stats || {};
   const base = String(request || title || '').replace(/\s+/g, ' ').trim();
-  const subject = base ? base.slice(0, 68) : `Automatische sync via ${store.agentName()}`;
+  const subject = base ? base.slice(0, 68) : 'Automatische sync via DawgAgent';
   const diff = stat.deletions ? `+${stat.insertions || 0} −${stat.deletions}` : `+${stat.insertions || 0}`;
-  return `${subject}\n\n${stat.files || 0} bestand(en) · ${diff}\nvia ${store.agentName()} · GitHub-sync`;
+  return `${subject}\n\n${stat.files || 0} bestand(en) · ${diff}\nvia DawgAgent · GitHub-sync`;
 }
 
 // ---------- activiteit ----------
@@ -525,7 +525,7 @@ async function createRepo(id) {
   const secrets = scanFiles(p.path, staged);
   if (secrets.block.length) return { ok: false, blocked: true, secrets, error: 'Geheimen gevonden — er is niets gepusht.' };
   if (!(await git(p.path, ['rev-parse', 'HEAD'])).ok) {
-    const msg = p.firstMessage || `Eerste versie van ${p.name} via ${store.agentName()}`;
+    const msg = p.firstMessage || `Eerste versie van ${p.name} via DawgAgent`;
     const c = await git(p.path, ['commit', '--allow-empty', '-m', msg, '--no-verify']);
     if (!c.ok) throw new Error(c.err);
   }
@@ -543,7 +543,7 @@ async function createRepo(id) {
   if (!cur.ok) await git(p.path, ['remote', 'add', 'origin', remote]);
   else await git(p.path, ['remote', 'set-url', 'origin', remote]);
   setGitConfig({ projects: getGitConfig().projects.map((x) => (x.id === id ? { ...x, repo: remote, branch } : x)) });
-  const pushed = await pushProject(id, { message: p.firstMessage || `Eerste versie van ${p.name} via ${store.agentName()}`, branch });
+  const pushed = await pushProject(id, { message: p.firstMessage || `Eerste versie van ${p.name} via DawgAgent`, branch });
   return { ok: pushed.ok !== false, url: `https://github.com/${full}`, remote, branch, already, push: pushed, activity: activity() };
 }
 

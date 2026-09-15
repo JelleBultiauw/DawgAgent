@@ -80,12 +80,6 @@ function getApiKey() {
   return cleanApiKey(readJson(KEY_FILE, {}).apiKey || process.env.DEEPSEEK_API_KEY || '');
 }
 
-// De naam waarmee de app nu naar buiten treedt. In de "secret agent"-modus heet hij
-// DawgSecretAgent: alleen de naam in de teksten en het logo veranderen, niets functioneels.
-function agentName(cfg) {
-  return (cfg || getConfig()).secretAgent ? 'DawgSecretAgent' : 'DawgAgent';
-}
-
 function setApiKey(apiKey) {
   writeJson(KEY_FILE, { apiKey: cleanApiKey(apiKey) }, 0o600);
   fs.chmodSync(KEY_FILE, 0o600);
@@ -197,7 +191,6 @@ module.exports = {
   getConfig,
   setConfig,
   getApiKey,
-  agentName,
   setApiKey,
   cleanApiKey,
   newSession,

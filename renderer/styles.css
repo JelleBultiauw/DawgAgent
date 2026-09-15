@@ -70,18 +70,20 @@ kbd { font: 11px var(--font); color: var(--faint); margin-left: auto; }
 
 /* ---------- sidebar ---------- */
 #sidebar { width: 256px; flex: none; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--line); }
-.sidebar-top { height: 42px; flex: none; }
+.sidebar-top { height: 40px; flex: none; }
 
-/* Merkblok onder de verkeerslichten, boven "Nieuwe chat" (zoals Codex):
-   logo + naam + modus-switch (DawgAgent / DawgSecretAgent). */
-.sidebar-brand { padding: 0 10px 8px; }
-.brand { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 10px; text-align: left; max-width: 100%; }
+/* Merkblok onder de verkeerslichten: groot, over de hele breedte van de sidebar.
+   Wisselt tussen DawgAgent en DawgSecretAgent (alleen hier: naam, logo en het
+   kleine "Business Friendly" in secret-modus). */
+.sidebar-brand { padding: 0 10px 12px; }
+.brand { display: flex; align-items: center; gap: 11px; width: 100%; padding: 8px 9px; border-radius: 13px; text-align: left; }
 .brand:hover { background: var(--hover); }
-.brand-logo { width: 21px; height: 21px; border-radius: 6px; object-fit: cover; flex: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16); }
-.brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
-.brand-name { font-size: 13.5px; font-weight: 650; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.brand-mode { font-size: 9.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.brand-caret { color: var(--faint); display: flex; flex: none; margin-top: 1px; }
+.brand-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; flex: none; box-shadow: 0 2px 7px rgba(0, 0, 0, 0.17); }
+.brand-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.brand-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.brand-name { font-size: 16px; font-weight: 680; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-mode { font-size: 10.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-caret { color: var(--faint); display: flex; flex: none; }
 .brand:hover .brand-caret { color: var(--muted); }
 .brand .ic svg { display: block; }
 .sidebar-actions, .sidebar-bottom { padding: 0 10px; display: flex; flex-direction: column; gap: 1px; }

@@ -189,7 +189,7 @@ class Agent {
   }
 
   async send({ sessionId, text = '', attachments = [] }) {
-    if (this.runs.has(sessionId)) throw new Error(`${store.agentName()} is nog bezig in deze chat.`);
+    if (this.runs.has(sessionId)) throw new Error('DawgAgent is nog bezig in deze chat.');
     const session = store.loadSession(sessionId);
     if (!session) throw new Error('Chat niet gevonden.');
     session.messages = repair(session.messages);
@@ -303,7 +303,7 @@ class Agent {
       const m = msgs[i];
       const text = String((m.role === 'user' ? m._text ?? m.content ?? '' : m.role === 'assistant' ? m.content || '' : '') || '').trim();
       if (!text) continue;
-      let chunk = `${m.role === 'user' ? 'Gebruiker' : store.agentName()}: ${text}`;
+      let chunk = `${m.role === 'user' ? 'Gebruiker' : 'DawgAgent'}: ${text}`;
       if (chunk.length > 6000) chunk = `${chunk.slice(0, 6000)} …`;
       if (total + chunk.length > maxChars) {
         const room = maxChars - total;
@@ -490,7 +490,7 @@ class Agent {
       if (images.length && cfg.vision) {
         session.messages.push({
           role: 'user',
-          content: `[Automatisch bericht van ${store.agentName()}] Afbeelding(en) uit de vorige tool-aanroep: ${images.map((p) => path.basename(p)).join(', ')}`,
+          content: `[Automatisch bericht van DawgAgent] Afbeelding(en) uit de vorige tool-aanroep: ${images.map((p) => path.basename(p)).join(', ')}`,
           _images: images,
           _auto: true,
           _ts: Date.now(),

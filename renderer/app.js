@@ -88,7 +88,7 @@ function appLogo(size = 52) {
   const img = document.createElement('img');
   img.className = 'app-logo';
   img.src = appLogoFile();
-  img.alt = appName();
+  img.alt = 'DawgAgent';
   img.style.width = `${size}px`;
   img.style.height = `${size}px`;
   img.addEventListener('error', () => img.replaceWith(robotArt(size)), { once: true });
@@ -280,7 +280,7 @@ let browserRefresh = null; // verversfunctie van de browser-statusrij in Instell
 
 // De naam die de app nu gebruikt. In de DawgSecretAgent-modus verandert alleen de naam in de
 // teksten en het logo — verder gebeurt er niets.
-const appName = () => (state.cfg?.secretAgent ? 'DawgSecretAgent' : `${appName()}`);
+const appName = () => (state.cfg?.secretAgent ? 'DawgSecretAgent' : `DawgAgent`);
 const appLogoFile = () => (state.cfg?.secretAgent ? '../assets/logo-secret.png' : '../assets/logo.png');
 
 const TOOL_META = {
@@ -315,9 +315,9 @@ const toolLabel = (n) => TOOL_META[n]?.[0] || BLOX_TOOL_META[n]?.[0] || (n?.star
 const toolIcon = (n) => TOOL_META[n]?.[1] || BLOX_TOOL_META[n]?.[1] || (n?.startsWith('mcp__') ? 'plug' : 'cpu');
 
 const MODES = {
-  ask: { label: 'Vraag eerst', icon: 'hand', desc: () => `${appName()} vraagt toestemming voor elke wijziging, elk commando en elke computeractie.` },
+  ask: { label: 'Vraag eerst', icon: 'hand', desc: () => `DawgAgent vraagt toestemming voor elke wijziging, elk commando en elke computeractie.` },
   edits: { label: 'Auto-bewerken', icon: 'pencil', desc: 'Bestanden bewerken mag direct; commando’s en computeracties eerst vragen.' },
-  auto: { label: 'Volledig automatisch', icon: 'zap', desc: () => `Alles zonder te vragen. Alleen gebruiken als je ${appName()} vertrouwt met de taak.` },
+  auto: { label: 'Volledig automatisch', icon: 'zap', desc: () => `Alles zonder te vragen. Alleen gebruiken als je DawgAgent vertrouwt met de taak.` },
 };
 const MODELS = [
   { id: 'deepseek-flash', label: 'DeepSeek Flash', desc: 'V4.1 · snel, goedkoop, ziet afbeeldingen', vision: true },
@@ -502,19 +502,18 @@ function setTopTitle(t) {
 }
 
 // ---------- merkblok: logo + naam + modus (DawgAgent / DawgSecretAgent) ----------
-// De switch verandert zichtbaar alleen het logo en zet in secret-modus de kleine regel
-// "Business Friendly" onder de naam; de naam "in de files" (prompt, teksten,
-// toolbeschrijvingen) volgt appName().
+// De switch raakt alleen de sidebar: ander logo, andere naam en in secret-modus de kleine
+// regel "Business Friendly" eronder. De rest van de app blijft DawgAgent heten.
 function applyBrand() {
   const secret = Boolean(state.cfg?.secretAgent);
   const img = $('#brand-logo');
   if (img) img.src = appLogoFile();
+  const name = $('#brand-name');
+  if (name) name.textContent = appName();
   const mode = $('#brand-mode');
   if (mode) mode.hidden = !secret;
-  const name = $('#brand-name');
-  if (name) name.textContent = 'DawgAgent';
   const b = $('#brand');
-  if (b) b.title = secret ? 'Undercover: DawgSecretAgent — klik om terug te wisselen' : 'DawgAgent — klik om te wisselen naar DawgSecretAgent';
+  if (b) b.title = secret ? 'DawgSecretAgent — klik om te wisselen' : 'DawgAgent — klik om te wisselen';
 }
 
 function brandMenu(anchor) {
@@ -523,8 +522,8 @@ function brandMenu(anchor) {
     anchor,
     [
       { header: true, label: 'Modus' },
-      { label: 'DawgAgent', desc: 'Business Friendly', icon: 'sparkles', checked: !secret, action: () => setAgentMode(false) },
-      { label: 'DawgSecretAgent', desc: 'Undercover — alleen de naam en het logo veranderen', icon: 'eye', checked: secret, action: () => setAgentMode(true) },
+      { label: 'DawgAgent', icon: 'sparkles', checked: !secret, action: () => setAgentMode(false) },
+      { label: 'DawgSecretAgent', icon: 'eye', checked: secret, action: () => setAgentMode(true) },
     ],
     { align: 'left' },
   );
@@ -1278,7 +1277,7 @@ function renderComposer() {
     ? `BloxCode staat aan in deze chat — klik om uit te zetten${blox.state.status?.studioName ? ` · ${blox.state.status.studioName}` : ''}`
     : 'BloxCode aanzetten: je Roblox-developer die rechtstreeks in Studio bouwt, script en test';
   $('#chip-blox').disabled = Boolean(s?.running);
-  input().placeholder = isBlox ? "Vraag BloxCode iets, typ / voor commando's, of sleep een foto hierheen…" : `Vraag ${appName()} iets, of sleep bestanden hierheen…`;
+  input().placeholder = isBlox ? "Vraag BloxCode iets, typ / voor commando's, of sleep een foto hierheen…" : `Vraag DawgAgent iets, of sleep bestanden hierheen…`;
   if (isBlox) {
     // BloxCode: de werkmap-chip wordt de Studio-kiezer, de modus-chip plan/vragen/veilig auto/alles auto.
     const c = blox.composerChips();
@@ -1301,7 +1300,7 @@ function renderComposer() {
   const think = cfg.thinking === 'off' ? '' : ` · ${THINKING[cfg.thinking].replace('Denken: ', '')}`;
   $('#chip-model').textContent = '';
   $('#chip-model').append(h('span', { class: 'label' }, `${modelLabel(cfg.model)}${think}`), icon('down', 13));
-  $('#composer-hint').textContent = s?.running ? `${appName()} werkt… druk op Esc om te stoppen` : cfg.hasKey ? '' : 'Voeg eerst je DeepSeek API-sleutel toe in Instellingen';
+  $('#composer-hint').textContent = s?.running ? `DawgAgent werkt… druk op Esc om te stoppen` : cfg.hasKey ? '' : 'Voeg eerst je DeepSeek API-sleutel toe in Instellingen';
   renderSendState();
 }
 
@@ -1380,7 +1379,7 @@ function attachMenu(anchor) {
   openMenu(anchor, [
     { label: "Foto's", icon: 'image', desc: 'PNG, JPG, HEIC…', action: () => addAttachments(call('attach:pick', sid, 'images')) },
     { label: 'Bestanden', icon: 'file', desc: 'Spreadsheets, PDF, Word, code, tekst', action: () => addAttachments(call('attach:pick', sid, 'files')) },
-    { label: 'Map', icon: 'folder', desc: `${appName()} krijgt de structuur en het pad`, action: () => addAttachments(call('attach:pick', sid, 'folder')) },
+    { label: 'Map', icon: 'folder', desc: `DawgAgent krijgt de structuur en het pad`, action: () => addAttachments(call('attach:pick', sid, 'folder')) },
     '-',
     { label: 'Skill importeren', icon: 'sparkles', action: importSkills },
     { label: 'Connector toevoegen', icon: 'plug', action: () => connectorModal() },
@@ -1434,7 +1433,7 @@ async function toggleComputer() {
     }
   }
   await saveCfg({ computerUse: on });
-  toast(on ? `Computer use staat aan — ${appName()} kan je scherm zien en bedienen` : 'Computer use staat uit');
+  toast(on ? `Computer use staat aan — DawgAgent kan je scherm zien en bedienen` : 'Computer use staat uit');
 }
 
 function permissionModal(perms) {
@@ -1459,11 +1458,11 @@ function permissionModal(perms) {
     h(
       'div',
       {},
-      h('h2', {}, `Geef ${appName()} toegang tot je scherm`),
+      h('h2', {}, `Geef DawgAgent toegang tot je scherm`),
       h(
         'p',
         { class: 'lead' },
-        `Voor computer use heeft macOS twee toestemmingen nodig. Zet ${appName()} (of Electron / Terminal, als je ${appName()} zo start) aan in Systeeminstellingen → Privacy en beveiliging.`,
+        `Voor computer use heeft macOS twee toestemmingen nodig. Zet DawgAgent (of Electron / Terminal, als je DawgAgent zo start) aan in Systeeminstellingen → Privacy en beveiliging.`,
       ),
       h(
         'div',
@@ -1471,11 +1470,11 @@ function permissionModal(perms) {
         rowFor('Toegankelijkheid', 'Om de muis en het toetsenbord te bedienen', perms.accessibility, 'accessibility'),
         rowFor('Schermopname', 'Om screenshots te maken van wat er op je scherm staat', perms.screenRecording, 'screen'),
       ),
-      h('p', { class: 'row-hint', style: 'margin-top:12px' }, `Na het aanzetten van Schermopname moet ${appName()} meestal even herstarten.`),
+      h('p', { class: 'row-hint', style: 'margin-top:12px' }, `Na het aanzetten van Schermopname moet DawgAgent meestal even herstarten.`),
       h(
         'div',
         { class: 'modal-actions' },
-        btn(`Herstart ${appName()}`, 'ghost', () => call('app:relaunch')),
+        btn(`Herstart DawgAgent`, 'ghost', () => call('app:relaunch')),
         btn('Opnieuw controleren', 'primary', async () => {
           const p = await call('computer:permissions', false);
           closeModal();
@@ -1512,7 +1511,7 @@ function showOnboarding() {
       'div',
       {},
       h('div', { class: 'logo photo', style: 'margin-bottom:14px' }, appLogo()),
-      h('h2', {}, `Welkom bij ${appName()}`),
+      h('h2', {}, `Welkom bij DawgAgent`),
       h('p', { class: 'lead' }, 'Je eigen agent op DeepSeek. Plak je API-sleutel om te beginnen — hij blijft alleen op deze Mac.'),
       h('div', { class: 'field' }, h('label', {}, 'DeepSeek API-sleutel'), key, status),
       h(
@@ -1550,7 +1549,7 @@ async function renderSkills() {
   const inner = pageShell(
     'skills',
     'Skills',
-    `Herbruikbare instructies die ${appName()} automatisch inzet als een taak erbij past. Zelfde formaat als Claude Code: een map met SKILL.md. Sleep een map, .md of .zip hierheen om te importeren.`,
+    `Herbruikbare instructies die DawgAgent automatisch inzet als een taak erbij past. Zelfde formaat als Claude Code: een map met SKILL.md. Sleep een map, .md of .zip hierheen om te importeren.`,
     [btn('Importeren', '', importSkills, 'download'), btn('Nieuwe skill', 'primary', () => skillModal(), 'plus')],
   );
   const cards = h('div', { class: 'cards' });
@@ -1589,12 +1588,12 @@ async function renderSkills() {
       ),
     );
   }
-  inner.append(cards, h('p', { class: 'row-hint', style: 'margin-top:12px' }, `Tip: vraag ${appName()} in een chat "maak een skill voor …" en hij schrijft hem zelf.`));
+  inner.append(cards, h('p', { class: 'row-hint', style: 'margin-top:12px' }, `Tip: vraag DawgAgent in een chat "maak een skill voor …" en hij schrijft hem zelf.`));
 }
 
 function skillModal() {
   const name = h('input', { class: 'input', placeholder: 'bv. factuur-maken' });
-  const desc = h('input', { class: 'input', placeholder: `Wanneer moet ${appName()} deze skill gebruiken?` });
+  const desc = h('input', { class: 'input', placeholder: `Wanneer moet DawgAgent deze skill gebruiken?` });
   const body = h('textarea', { class: 'textarea mono', rows: 10, placeholder: '# Stappen\n1. …' });
   openModal(
     h(
@@ -1651,7 +1650,7 @@ async function renderConnectors() {
   const inner = pageShell(
     'connectors',
     'Connectors',
-    `Koppel ${appName()} aan andere diensten via MCP-servers: lokaal (een commando zoals npx) of op afstand (een URL). Hetzelfde formaat als Claude Desktop en Cursor.`,
+    `Koppel DawgAgent aan andere diensten via MCP-servers: lokaal (een commando zoals npx) of op afstand (een URL). Hetzelfde formaat als Claude Desktop en Cursor.`,
     [btn('JSON importeren', '', importJsonModal, 'download'), btn('Toevoegen', 'primary', () => connectorModal(), 'plus')],
   );
   const cards = h('div', { class: 'cards' });
@@ -1805,7 +1804,7 @@ function connectorModal(existing) {
       'div',
       {},
       h('h2', {}, existing ? 'Connector bewerken' : 'Connector toevoegen'),
-      h('p', { class: 'lead' }, `Een MCP-server geeft ${appName()} nieuwe tools, zoals GitHub, Notion, databases of je agenda.`),
+      h('p', { class: 'lead' }, `Een MCP-server geeft DawgAgent nieuwe tools, zoals GitHub, Notion, databases of je agenda.`),
       h('div', { class: 'field' }, h('label', {}, 'Naam'), name),
       h('div', { class: 'field' }, seg),
       stdioBox,
@@ -1941,7 +1940,7 @@ async function renderSettings() {
         settingRow('Nadenken', 'Meer denken = slimmer maar trager', thinking),
         settingRow('Model ziet afbeeldingen', 'Uit = foto’s en screenshots worden als herkende tekst (OCR) doorgegeven', toggleSwitch(cfg.vision, (on) => saveCfg({ vision: on }))),
         settingRow('API-adres', 'Werkt met elke OpenAI-compatibele API', baseUrl),
-        settingRow('Max. stappen per beurt', `Hoeveel tool-aanroepen ${appName()} achter elkaar mag doen`, maxSteps),
+        settingRow('Max. stappen per beurt', `Hoeveel tool-aanroepen DawgAgent achter elkaar mag doen`, maxSteps),
       ),
     ),
   );
@@ -1978,7 +1977,7 @@ async function renderSettings() {
       h(
         'div',
         { class: 'cards' },
-        settingRow('Goedkeuring', `Wanneer ${appName()} jou om toestemming vraagt`, modeSeg),
+        settingRow('Goedkeuring', `Wanneer DawgAgent jou om toestemming vraagt`, modeSeg),
         h('div', { class: 'row stack' }, h('div', {}, h('div', { class: 'row-label' }, 'Eigen instructies'), h('div', { class: 'row-hint' }, 'Worden bij elke chat meegegeven. Een AGENTS.md in je werkmap wordt ook automatisch gelezen.')), instructions),
       ),
     ),
@@ -1998,7 +1997,7 @@ async function renderSettings() {
         'div',
         { class: 'row-hint' },
         b.connected
-          ? `Chrome praat met ${appName()} op poort ${b.port}${b.tab?.title ? ` · ${b.tab.title.slice(0, 60)}` : ''}`
+          ? `Chrome praat met DawgAgent op poort ${b.port}${b.tab?.title ? ` · ${b.tab.title.slice(0, 60)}` : ''}`
           : 'Laad hem eenmalig in Chrome: Ontwikkelaarsmodus aan, "Uitgepakte extensie laden" en kies de map hieronder.',
       ),
       h('div', { class: 'path' }, `Extensiemap: ${shortPath(b.dir)}`),
@@ -2031,12 +2030,12 @@ async function renderSettings() {
       h(
         'p',
         { class: 'row-hint', style: 'margin:-4px 0 10px' },
-        `Met de eigen extensie leest en bedient ${appName()} je eigen Chrome. Dat is veel zuiniger dan screenshots: hij krijgt de tekst van de pagina en een genummerde lijst met knoppen en velden, en ziet dus precies wat hij doet. Zeg in een chat bijvoorbeeld "gebruik de browser extensie en zoek …".`,
+        `Met de eigen extensie leest en bedient DawgAgent je eigen Chrome. Dat is veel zuiniger dan screenshots: hij krijgt de tekst van de pagina en een genummerde lijst met knoppen en velden, en ziet dus precies wat hij doet. Zeg in een chat bijvoorbeeld "gebruik de browser extensie en zoek …".`,
       ),
       h(
         'div',
         { class: 'cards' },
-        settingRow('Browser-gereedschap', `Laat ${appName()} je browser lezen en bedienen`, toggleSwitch(cfg.browser !== false, (on) => saveCfg({ browser: on }))),
+        settingRow('Browser-gereedschap', `Laat DawgAgent je browser lezen en bedienen`, toggleSwitch(cfg.browser !== false, (on) => saveCfg({ browser: on }))),
         h('div', { class: 'row' }, browserInfo, browserActions),
       ),
     ),
@@ -2051,10 +2050,10 @@ async function renderSettings() {
     h(
       'div',
       { class: 'cards' },
-      settingRow('Computer use', `${appName()} mag je scherm zien en muis en toetsenbord bedienen`, toggleSwitch(cfg.computerUse, async (on) => {
+      settingRow('Computer use', `DawgAgent mag je scherm zien en muis en toetsenbord bedienen`, toggleSwitch(cfg.computerUse, async (on) => {
         if (on !== state.cfg.computerUse) await toggleComputer();
       })),
-      settingRow(`Verberg ${appName()} tijdens het werk`, 'Het venster gaat opzij; een klein balkje met Stop blijft zichtbaar', toggleSwitch(cfg.hideDuringComputerUse, (on) => saveCfg({ hideDuringComputerUse: on }))),
+      settingRow(`Verberg DawgAgent tijdens het werk`, 'Het venster gaat opzij; een klein balkje met Stop blijft zichtbaar', toggleSwitch(cfg.hideDuringComputerUse, (on) => saveCfg({ hideDuringComputerUse: on }))),
       h(
         'div',
         { class: 'row' },
@@ -2072,7 +2071,7 @@ async function renderSettings() {
         ),
       ),
     ),
-    h('p', { class: 'row-hint', style: 'margin-top:8px' }, `Noodstop: ⌘⇧⎋ (Command-Shift-Escape) werkt altijd, ook als ${appName()} verborgen is.`),
+    h('p', { class: 'row-hint', style: 'margin-top:8px' }, `Noodstop: ⌘⇧⎋ (Command-Shift-Escape) werkt altijd, ook als DawgAgent verborgen is.`),
   );
   inner.append(cuSection);
   call('computer:permissions', false)
@@ -2093,7 +2092,7 @@ async function renderSettings() {
     h(
       'div',
       { class: 'row' },
-      h('div', { class: 'row-text' }, h('div', { class: 'row-label' }, `Broncode van ${appName()}`), h('div', { class: 'path' }, shortPath(state.info.appDir))),
+      h('div', { class: 'row-text' }, h('div', { class: 'row-label' }, `Broncode van DawgAgent`), h('div', { class: 'path' }, shortPath(state.info.appDir))),
       h(
         'div',
         { class: 'row-control' },
@@ -2106,14 +2105,14 @@ async function renderSettings() {
       ),
     ),
   );
-  if (!snaps.length) snapCards.append(h('div', { class: 'empty-card' }, `Nog geen back-ups. Er wordt er automatisch één gemaakt zodra ${appName()} zijn eigen code aanpast.`));
+  if (!snaps.length) snapCards.append(h('div', { class: 'empty-card' }, `Nog geen back-ups. Er wordt er automatisch één gemaakt zodra DawgAgent zijn eigen code aanpast.`));
   for (const s of snaps.slice(0, 15)) {
     snapCards.append(
       settingRow(
         new Date(s.created).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' }),
         s.reason,
         btn('Herstellen', 'ghost', async () => {
-          if (!(await confirmDialog('Deze versie herstellen?', `De broncode van ${appName()} wordt teruggezet naar deze back-up en ${appName()} herstart. De huidige versie wordt eerst zelf ook bewaard.`, 'Herstellen'))) return;
+          if (!(await confirmDialog('Deze versie herstellen?', `De broncode van DawgAgent wordt teruggezet naar deze back-up en DawgAgent herstart. De huidige versie wordt eerst zelf ook bewaard.`, 'Herstellen'))) return;
           await call('snapshots:restore', s.id);
         }, 'history'),
       ),
@@ -2124,7 +2123,7 @@ async function renderSettings() {
       'div',
       { class: 'section' },
       h('h2', {}, 'Zelf-aanpassing & versies'),
-      h('p', { class: 'row-hint', style: 'margin:-4px 0 10px' }, `${appName()} kan zijn eigen code aanpassen als je daarom vraagt ("voeg een knop toe die…"). Vóór elke aanpassing wordt een back-up gemaakt. Start ${appName()} niet meer? Dubbelklik dan op Herstel.command in de app-map.`),
+      h('p', { class: 'row-hint', style: 'margin:-4px 0 10px' }, `DawgAgent kan zijn eigen code aanpassen als je daarom vraagt ("voeg een knop toe die…"). Vóór elke aanpassing wordt een back-up gemaakt. Start DawgAgent niet meer? Dubbelklik dan op Herstel.command in de app-map.`),
       snapCards,
     ),
   );
@@ -2564,7 +2563,7 @@ async function panelAskFromBar(text) {
     if (!s) return;
     if (!s.id) s = await materializeSideChat();
     if (!s) return;
-    if (s.running) return toast(`${appName()} is nog bezig — wacht heel even.`, 'error');
+    if (s.running) return toast(`DawgAgent is nog bezig — wacht heel even.`, 'error');
     setPanelTab('chat');
     await call('chat:send', { sessionId: s.id, text: `[via de adresbalk van het browserpaneel] ${text}` });
   } catch (e) {
@@ -3086,10 +3085,10 @@ async function init() {
   [state.cfg, state.info] = await Promise.all([call('config:get'), call('app:info')]);
   blox = createBlox({
     h, icon, call, toast, openMenu, openModal, closeModal, confirmDialog, btn, iconBtn, toggleSwitch, md, state,
-    settingRow, fmtWhen, saveCfg, showView, newChat, openSession, addPending, addPhotos, toggleBlox, appName,
+    settingRow, fmtWhen, saveCfg, showView, newChat, openSession, addPending, addPhotos, toggleBlox,
     renderComposer: () => renderComposer(),
   });
-  git = createGit({ h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state, appName });
+  git = createGit({ h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state });
   bindUI();
   applyBrand();
   api.on('blox:changed', (st) => blox.onStatus(st));
@@ -3118,5 +3117,5 @@ async function init() {
 }
 
 init().catch((e) => {
-  document.body.innerHTML = `<pre style="padding:30px;color:#c33;white-space:pre-wrap">${appName()} kon niet starten:\n${escapeHtml(e.stack || e.message)}</pre>`;
+  document.body.innerHTML = `<pre style="padding:30px;color:#c33;white-space:pre-wrap">DawgAgent kon niet starten:\n${escapeHtml(e.stack || e.message)}</pre>`;
 });
