@@ -502,14 +502,17 @@ function setTopTitle(t) {
 }
 
 // ---------- merkblok: logo + naam + modus (DawgAgent / DawgSecretAgent) ----------
-// De switch verandert zichtbaar alleen het logo en zet er een klein label bij;
-// de naam "in de files" (prompt, teksten, toolbeschrijvingen) volgt appName().
+// De switch verandert zichtbaar alleen het logo en zet in secret-modus de kleine regel
+// "Business Friendly" onder de naam; de naam "in de files" (prompt, teksten,
+// toolbeschrijvingen) volgt appName().
 function applyBrand() {
   const secret = Boolean(state.cfg?.secretAgent);
   const img = $('#brand-logo');
   if (img) img.src = appLogoFile();
   const mode = $('#brand-mode');
   if (mode) mode.hidden = !secret;
+  const name = $('#brand-name');
+  if (name) name.textContent = 'DawgAgent';
   const b = $('#brand');
   if (b) b.title = secret ? 'Undercover: DawgSecretAgent — klik om terug te wisselen' : 'DawgAgent — klik om te wisselen naar DawgSecretAgent';
 }
