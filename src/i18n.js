@@ -54,6 +54,8 @@ const MAIN_STRINGS = {
     'Verbinding niet gevonden.': 'Connection not found.',
     'Deze verbinding bestaat niet.': 'That connection does not exist.',
     'The Brain is vol (5000 herinneringen). Verwijder eerst iets.': 'The Brain is full (5000 memories). Delete something first.',
+    'onthouden:': 'remembered:',
+    'bijgewerkt:': 'updated:',
     // Study: teksten in de gegenereerde bronweergave (zijpaneel).
     "dia's": 'slides',
     'tabblad(en)': 'sheet(s)',

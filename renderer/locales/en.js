@@ -359,6 +359,16 @@ export default {
     'Wacht tot BloxCode klaar is met deze beurt.': 'Wait until BloxCode has finished this turn.',
 
     // ---------- The Brain ----------
+    'Het tweede geheugen van DawgAgent: één graaf met alles wat hij over jou, je projecten en je werk onthoudt. Het blijft tussen alle chats bewaard en gaat bij elke vraag mee.':
+      "DawgAgent's second memory: one graph with everything it remembers about you, your projects and your work. It survives every chat and comes along with every question.",
+    'Automatisch onthouden': 'Remember automatically',
+    'Aan: na elke beurt haalt DawgAgent zelf de duurzame dingen uit het gesprek (voorkeuren, beslissingen, plannen, personen) en schrijft ze weg — zonder dat je erom vraagt. Uit: hij onthoudt alleen nog als je het vraagt of als hij het zelf belangrijk vindt.':
+      'On: after every turn DawgAgent pulls the durable bits out of the conversation itself (preferences, decisions, plans, people) and writes them away — without you asking. Off: it only remembers when you ask or when it finds something important itself.',
+    'The Brain onthoudt nu automatisch.': 'The Brain now remembers automatically.',
+    'The Brain onthoudt alleen nog op verzoek.': 'The Brain only remembers on request now.',
+    'Open The Brain': 'Open The Brain',
+    'Nog leeg': 'Still empty',
+    'Zodra DawgAgent iets onthoudt, verschijnt het hier.': 'As soon as DawgAgent remembers something, it shows up here.',
     'The Brain: het tweede geheugen van DawgAgent — alles wat hij over jou en je werk onthoudt, als één graaf':
       "The Brain: DawgAgent's second memory — everything it remembers about you and your work, as one graph",
     'Het tweede geheugen van DawgAgent: alles wat hij over jou, je projecten en je werk onthoudt — als één levende graaf.':
@@ -855,6 +865,11 @@ export default {
     [/^Te groot voor GitHub: (.+)$/, 'Too large for GitHub: $1'],
     [/^Nog geen repo voor: (.+) — klik om te koppelen$/, 'No repo yet for: $1 — click to link'],
     [/^Modus: (.+)$/, 'Mode: $1'],
+    [/^Laatst bijgewerkt (.+)$/, 'Last updated $1'],
+    [/^(\d+) herinnering · (\d+) verbindingen$/, '$1 memory · $2 connections'],
+    [/^(\d+) herinneringen · (\d+) verbinding$/, '$1 memories · $2 connection'],
+    [/^(\d+) herinneringen · (\d+) verbindingen$/, '$1 memories · $2 connections'],
+    [/^(\d+) herinnering · (\d+) verbinding$/, '$1 memory · $2 connection'],
     [/^bijgewerkt (.+)$/, 'updated $1'],
     [/^laatst bijgewerkt (.+)$/, 'last updated $1'],
     [/^Verbindingen \((\d+)\)$/, 'Connections ($1)'],

@@ -117,8 +117,25 @@ ${stateText || '(nog leeg)'}
 `;
 }
 
-function buildSystemPrompt({ cfg, session, connectors, side = null }) {
-  const cwd = session.workspace && fs.existsSync(session.workspace) ? session.workspace : os.homedir();
+// De gebruiker stuurt net een bericht: de app zoekt zelf alvast in The Brain en zet de
+// treffers in de prompt, zodat de agent niet hoeft te hopen dat hij iets vindt.
+function brainContext(session) {
+  try {
+    const last = [...(session?.messages || [])].reverse().find((m) => m.role === 'user' && !m._auto);
+    const query = String(last?._text ?? last?.content ?? '').trim();
+    if (query.length < 8) return '';
+    const hits = brain.search(query, { limit: 5 }).filter((h) => h.score >= 4).slice(0, 4);
+    if (!hits.length) return '';
+    const lines = hits.map(
+      (h) => `- [${h.id}] "${h.title}" (${h.type})${h.tags.length ? ` · #${h.tags.join(' #')}` : ''} — ${String(h.snippet || '').replace(/\s+/g, ' ').slice(0, 200)}`,
+    );
+    return `\n# Possibly relevant memories (auto-searched in The Brain for the user's last message)\n${lines.join('\n')}\nThey may or may not fit; use them if they do and ignore them if they do not. For anything deeper, call \`brain_search\` yourself.\n`;
+  } catch {
+    return '';
+  }
+}
+
+function buildSystemPrompt({ cfg, session, connectors, side = null }) {  const cwd = session.workspace && fs.existsSync(session.workspace) ? session.workspace : os.homedir();
   const skills = listSkills().filter((s) => s.enabled);
   const conns = connectors.status();
   const uiLocale = i18n.locale() === 'nl' ? 'nl-NL' : i18n.locale() === 'en' ? 'en-GB' : i18n.locale();
@@ -182,6 +199,12 @@ ${skills.length ? skills.map((s) => `- ${s.name}: ${s.description}`).join('\n') 
 The app has a **The Brain** tab in the sidebar (between GitHub and BloxCode) where the user sees this as a living graph: every memory is a node, every connection a line. It is your long-term memory and it survives every chat — a normal chat forgets, The Brain does not. The user can read, edit and delete everything in it, so write it as notes you would be happy to have quoted back at you.
 Tools: \`brain_search\`, \`brain_read\`, \`brain_write\`, \`brain_link\`, \`brain_delete\`.
 ${brain.promptOverview()}
+Automatic capture is **${cfg.brain?.auto === false ? 'OFF' : 'ON'}** (Instellingen → The Brain).${
+    cfg.brain?.auto === false
+      ? ' Nothing is stored unless you do it: write memories yourself (brain_write) as soon as something durable comes up.'
+      : ' After every turn a small separate model call reads the conversation and writes the durable bits away itself, and the relevant memories are searched for automatically below. You do not have to save everything: write a memory yourself when it matters right now, when the user asks for it ("onthoud dit"), or when the automatic pass would miss the nuance.'
+  }
+${brainContext(session)}
 How to use it:
 - **Search before you speak about his world.** Anything about the user himself — preferences, projects, decisions, people, plans, earlier work, "wat hadden we ook alweer…" — you look up in The Brain first and answer from what you find instead of general knowledge. Nothing there? Say so in one line; do not invent.
 - **Write memories yourself, without asking.** As soon as something durable comes up — a preference, a decision, a project detail, a plan, an appointment, a person, a recurring workflow, the outcome of a long task — put it in The Brain with brain_write (2–5 tags, one fact per memory, clear title). Update an existing memory (same title or id) instead of writing a duplicate; connect related memories with brain_link or \`links\` in one go.

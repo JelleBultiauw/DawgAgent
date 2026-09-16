@@ -2167,6 +2167,49 @@ async function renderSettings() {
     ),
   );
 
+  // The Brain (tweede geheugen)
+  const brainInfo = h('div', { class: 'row-text' }, h('div', { class: 'row-label' }, 'The Brain'), h('div', { class: 'row-hint' }, 'Laden…'));
+  const brainActions = h('div', { class: 'row-control' });
+  const refreshBrain = async () => {
+    const info = await call('brain:stats').catch(() => null);
+    if (!brainInfo.isConnected || !info) return;
+    brainInfo.textContent = '';
+    const when = info.updated ? fmtWhen(Date.parse(info.updated)) : null;
+    brainInfo.append(
+      h('div', { class: 'row-label' }, info.nodes ? `${info.nodes} herinnering${info.nodes === 1 ? '' : 'en'} · ${info.links} verbinding${info.links === 1 ? '' : 'en'}` : 'Nog leeg'),
+      h('div', { class: 'row-hint' }, when ? `Laatst bijgewerkt ${when}` : 'Zodra DawgAgent iets onthoudt, verschijnt het hier.'),
+    );
+    brainActions.textContent = '';
+    brainActions.append(btn('Open The Brain', '', () => showView('brain'), 'brain'), btn('Map tonen', '', () => call('app:openPath', `${state.info.dataDir}/brain`), 'folder'));
+  };
+  refreshBrain();
+  inner.append(
+    h(
+      'div',
+      { class: 'section' },
+      h('h2', {}, 'The Brain'),
+      h(
+        'p',
+        { class: 'row-hint', style: 'margin:-4px 0 10px' },
+        'Het tweede geheugen van DawgAgent: één graaf met alles wat hij over jou, je projecten en je werk onthoudt. Het blijft tussen alle chats bewaard en gaat bij elke vraag mee.',
+      ),
+      h(
+        'div',
+        { class: 'cards' },
+        settingRow(
+          'Automatisch onthouden',
+          'Aan: na elke beurt haalt DawgAgent zelf de duurzame dingen uit het gesprek (voorkeuren, beslissingen, plannen, personen) en schrijft ze weg — zonder dat je erom vraagt. Uit: hij onthoudt alleen nog als je het vraagt of als hij het zelf belangrijk vindt.',
+          toggleSwitch(cfg.brain?.auto !== false, async (on) => {
+            await saveCfg({ brain: { ...(cfg.brain || {}), auto: on } });
+            toast(on ? 'The Brain onthoudt nu automatisch.' : 'The Brain onthoudt alleen nog op verzoek.');
+            refreshBrain();
+          }),
+        ),
+        h('div', { class: 'row' }, brainInfo, brainActions),
+      ),
+    ),
+  );
+
   // Browser (Chrome-extensie)
   const browserInfo = h('div', { class: 'row-text' }, h('div', { class: 'row-label' }, 'Status'), h('div', { class: 'row-hint' }, 'Controleren…'));
   const browserActions = h('div', { class: 'row-control' });

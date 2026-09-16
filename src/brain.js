@@ -434,6 +434,54 @@ function promptOverview(maxChars = 2000) {
   return text;
 }
 
+// ---------- automatisch onthouden ----------
+// Na elke beurt vraagt de app het model om de duurzame dingen uit het gesprek te halen
+// (als JSON). Hier wordt dat antwoord streng nagelopen en omgezet in herinneringen.
+function parseCapture(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+  let body = raw;
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) body = fence[1];
+  const start = body.indexOf('[');
+  const end = body.lastIndexOf(']');
+  if (start < 0 || end <= start) return [];
+  let arr;
+  try {
+    arr = JSON.parse(body.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of arr) {
+    if (!item || typeof item !== 'object') continue;
+    const title = cleanOneLine(item.title, 200);
+    const content = cleanText(item.content, 4000);
+    if (title.length < 3 || !content) continue;
+    const key = title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ title, content, type: cleanType(item.type), tags: cleanTags(item.tags) });
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+// Schrijft de gevonden herinneringen weg (bestaande titel = bijwerken, geen duplicaat).
+function applyCapture(items, origin = 'auto') {
+  const created = [];
+  const updated = [];
+  for (const item of items || []) {
+    try {
+      const { node, created: isNew } = upsert({ ...item, origin });
+      (isNew ? created : updated).push(node);
+    } catch {}
+  }
+  return { created, updated };
+}
+
 // ---------- luisteraar (main stuurt er brain:changed mee naar de interface) ----------
 let watcher = null;
 function setWatcher(fn) {
@@ -461,6 +509,8 @@ module.exports = {
   unlink,
   connections,
   promptOverview,
+  parseCapture,
+  applyCapture,
   setWatcher,
   findNode,
 };

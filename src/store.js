@@ -34,6 +34,7 @@ const DEFAULTS = {
 
   autoTodos: false, // laat DawgAgent standaard een takenlijst bijhouden (Taken-paneel)
   secretAgent: false, // DawgSecretAgent-modus: alleen naam + logo veranderen, verder niets
+  brain: { auto: true }, // The Brain: na elke beurt zelf herinneringen opschrijven en relevante herinneringen meesturen
   lang: 'auto', // taal van de app: 'auto' = die van de Mac, anders bijv. 'nl' of 'en'
   panelOpen: false, // zijpaneel open bij het starten
   panelTab: 'chat',

@@ -46,7 +46,7 @@ const { bridge, syncExtension, EXT_DIR } = require('./browser');
 const { Connectors, parseServersJson } = require('./mcp');
 const { Terminals, ensureTermHelper } = require('./term');
 const { Agent } = require('./agent');
-const { testKey } = require('./llm');
+const { testKey, quickChat, isDeepSeek } = require('./llm');
 
 const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, 'preload.js');
@@ -166,6 +166,9 @@ const agent = new Agent({
       // GitHub-sync: staat "automatisch pushen" aan, dan gaat alles wat deze beurt
       // opleverde meteen naar GitHub — zonder te vragen.
       await gitAutoPush(_sessionId);
+      // The Brain: staat "automatisch onthouden" aan, dan haalt DawgAgent zelf de
+      // duurzame dingen uit deze beurt en schrijft ze weg — zonder dat je erom vraagt.
+      if (!turn?.reload) brainAutoCapture(_sessionId).catch(() => {});
       if (turn?.reload === 'app') {
         setTimeout(() => {
           app.relaunch();
@@ -791,6 +794,91 @@ const brain = require('./brain');
 // licht de graaf in de zijbalk op. Daarvoor gaat er een event naar de interface.
 brain.setWatcher((info) => send('brain:changed', info || {}));
 
+// De laatste berichten van een chat als leesbare tekst (voor het automatisch onthouden).
+function recentTranscript(session, maxChars = 7000) {
+  const msgs = (session.messages || []).filter((m) => !m.role.startsWith('_') && !(m.role === 'user' && m._auto));
+  const parts = [];
+  let total = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    const text = String((m.role === 'user' ? m._text ?? m.content ?? '' : m.role === 'assistant' ? m.content || '' : '') || '').trim();
+    if (!text) continue;
+    let chunk = `${m.role === 'user' ? 'Gebruiker' : 'DawgAgent'}: ${text}`;
+    if (chunk.length > 2600) chunk = `${chunk.slice(0, 2600)} …`;
+    if (total + chunk.length > maxChars) break;
+    parts.unshift(chunk);
+    total += chunk.length + 2;
+  }
+  return parts.join('\n\n');
+}
+
+// Wat het model moet doen: alleen duurzame dingen eruit halen, als strikte JSON.
+const CAPTURE_PROMPT = `Je bent het langetermijngeheugen van DawgAgent. Je leest het laatste stuk van een gesprek tussen de gebruiker en DawgAgent en haalt er alleen de DUURZAME herinneringen uit: voorkeuren en gewoontes van de gebruiker, beslissingen, projectdetails, plannen en afspraken, personen, terugkerende werkwijzen, en conclusies die later nog van belang zijn.
+
+Regels:
+- Maximaal 3 herinneringen. Liever niets dan ruis: losse chit-chat, dingen die alleen in dit gesprek gelden, en dingen die al in de lijst hieronder staan sla je over.
+- Geen geheimen: nooit wachtwoorden, API-sleutels, tokens of pincodes opschrijven.
+- Eén feit per herinnering, in de taal van het gesprek. Korte titel (max 8 woorden), 1 tot 3 zinnen inhoud, 2 tot 5 tags in kleine letters.
+- "type" is één van: note, project, person, decision, task, idea, meeting, source.
+- Niks duurzaams gevonden? Antwoord met [].
+
+Antwoord met ALLEEN JSON, geen uitleg en geen codeblok:
+[{"title":"…","content":"…","type":"note","tags":["…","…"]}]`;
+
+// Na elke beurt: zelf herinneringen maken. Staat standaard aan (Instellingen → The Brain).
+const capturedSignatures = new Map(); // sessie-id → laatste verwerkte gesprek (voorkomt dubbel werk)
+const capturing = new Set();
+
+async function brainAutoCapture(sessionId, { force = false, silent = false } = {}) {
+  const cfg = store.getConfig();
+  if (!force && cfg.brain?.auto === false) return null;
+  const apiKey = store.getApiKey();
+  if (!apiKey || capturing.has(sessionId)) return null;
+  const s = agent.live(sessionId) || store.loadSession(sessionId);
+  if (!s || s.parentId) return null; // zijchats en losse vragen: niets om te onthouden
+  const text = recentTranscript(s);
+  if (text.length < 200) return null;
+  const signature = crypto.createHash('sha1').update(text).digest('hex');
+  if (!force && capturedSignatures.get(sessionId) === signature) return null;
+  capturedSignatures.set(sessionId, signature);
+
+  const known = brain
+    .list()
+    .nodes.slice(-80)
+    .map((n) => `- ${n.title}${n.tags.length ? ` (#${n.tags.join(' #')})` : ''}`)
+    .join('\n');
+  capturing.add(sessionId);
+  let raw = '';
+  try {
+    // Voor dit achtergrondwerkje het goedkoopste model van de aanbieder (bij DeepSeek: flash),
+    // zodat automatisch onthouden bijna niets kost.
+    const captureCfg = isDeepSeek(cfg.baseUrl) && cfg.model !== 'deepseek-flash' ? { ...cfg, model: 'deepseek-flash' } : cfg;
+    raw = await quickChat({
+      cfg: captureCfg,
+      apiKey,
+      maxTokens: 900,
+      messages: [
+        { role: 'system', content: known ? `${CAPTURE_PROMPT}\n\nWat er al in The Brain staat (niet opnieuw opschrijven):\n${known}` : CAPTURE_PROMPT },
+        { role: 'user', content: text },
+      ],
+    });
+  } catch (e) {
+    if (!silent) console.error('[brain] automatisch onthouden mislukte:', e.message);
+    capturing.delete(sessionId);
+    return null;
+  }
+  capturing.delete(sessionId);
+
+  const items = brain.parseCapture(raw);
+  if (!items.length) return { created: [], updated: [] };
+  const { created, updated } = brain.applyCapture(items);
+  const bits = [];
+  if (created.length) bits.push(`${i18n.t('onthouden:')} ${created.map((n) => n.title).join(' · ')}`);
+  if (updated.length) bits.push(`${i18n.t('bijgewerkt:')} ${updated.map((n) => n.title).join(' · ')}`);
+  if (bits.length && !silent) noteToSession(sessionId, `The Brain — ${bits.join(' · ')}`);
+  return { created, updated };
+}
+
 handle('brain:list', () => brain.list());
 handle('brain:stats', () => brain.stats());
 handle('brain:get', (id) => brain.get(id));
@@ -800,6 +888,7 @@ handle('brain:delete', (id) => brain.remove(id));
 handle('brain:link', (from, to, label) => brain.link(from, to, label));
 handle('brain:unlink', (from, to) => brain.unlink(from, to));
 handle('brain:overview', () => ({ text: brain.promptOverview(), ...brain.stats() }));
+handle('brain:capture', (sessionId, opts) => brainAutoCapture(sessionId, { silent: true, ...(opts || {}) }));
 
 handle('blox:status', () => bloxStatus());
 handle('blox:connect', () => bloxConnect());
