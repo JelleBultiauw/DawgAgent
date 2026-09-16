@@ -382,7 +382,12 @@ const CORE = [
     summary: (a) => a.name,
     async run(a) {
       const s = skills.getSkill(a.name);
-      if (!s) throw new Error(`Skill "${a.name}" bestaat niet. Beschikbaar: ${skills.listSkills().map((x) => x.name).join(', ')}`);
+      if (!s)
+        throw new Error(
+          `Skill "${a.name}" bestaat niet. Beschikbaar: ${skills.listSkills().filter((x) => x.enabled).map((x) => x.name).join(', ') || '(geen)'}`,
+        );
+      // Uitgeschakelde skills (schakelaar in de sidebar onder Skills) doen niet mee.
+      if (!s.enabled) throw new Error(`Skill "${s.name}" staat uit. Zeg het tegen de gebruiker, of vraag hem de skill aan te zetten via Skills in de sidebar.`);
       return { text: `# Skill: ${s.name}\nMap: ${s.dir}\n${s.files.length ? `Extra bestanden: ${s.files.join(', ')}\n` : ''}\n${s.content}` };
     },
   },

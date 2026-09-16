@@ -477,6 +477,9 @@ export default {
     'In gesprek laden': 'Load into the conversation',
     'Sleep een map, .md of .zip hierheen': 'Drop a folder, .md or .zip here',
     'Geïmporteerd': 'Imported',
+    'Skills aan/uit en beheren': 'Switch skills on/off and manage them',
+    'Klik om er een te maken': 'Click to create one',
+    'Nieuwe skill, bewerken, verwijderen': 'New skill, edit, delete',
 
     // ---------- connectors ----------
     'Connector toevoegen': 'Add connector',
@@ -818,6 +821,7 @@ export default {
     [/^(\d+) repo's van je account$/, "$1 repos in your account"],
     [/^(\d+) commit(s)? nog niet gepusht$/, '$1 commit(s) not pushed yet'],
     [/^(\d+) tools · (\d+) skills$/, '$1 tools · $2 skills'],
+    [/^Skills · (\d+) van (\d+) aan$/, 'Skills · $1 of $2 on'],
     [/^(\d+) van (\d+)$/, '$1 of $2'],
     [/^Taken (\d+)\/(\d+)( · gestopt)?$/, 'Tasks $1/$2$3'],
     [/^Taken (\d+)\/(\d+) · gestopt$/, 'Tasks $1/$2 · stopped'],

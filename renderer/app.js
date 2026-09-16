@@ -264,6 +264,7 @@ const state = {
   pending: [],
   live: null,
   connectors: [],
+  skills: [],
   todosOpen: true,
   panel: {
     open: false,
@@ -356,13 +357,32 @@ function closeMenu() {
   $('#menu').hidden = true;
 }
 
-function openMenu(anchor, items, { align = 'left' } = {}) {
+function openMenu(anchor, items, { align = 'left', width } = {}) {
   const menu = $('#menu');
   menu.textContent = '';
   for (const item of items) {
     if (item === '-') menu.append(h('div', { class: 'menu-sep' }));
     else if (item.label && item.header) menu.append(h('div', { class: 'menu-label' }, item.label));
-    else {
+    else if (item.toggle) {
+      // Een rij met een schakelaar: klikken zet hem om, het menu blijft open staan.
+      const sw = toggleSwitch(Boolean(item.on), async (next) => {
+        row.classList.toggle('off', !next);
+        await item.onChange?.(next);
+      });
+      const row = h(
+        'div',
+        {
+          class: `menu-item menu-toggle${item.on ? '' : ' off'}`,
+          onclick: (e) => {
+            if (!e.target.closest('.switch')) sw.click();
+          },
+        },
+        item.icon ? icon(item.icon, 15) : null,
+        h('span', { class: 'menu-text' }, item.label, item.desc ? h('small', {}, item.desc) : null),
+        sw,
+      );
+      menu.append(row);
+    } else {
       menu.append(
         h(
           'button',
@@ -381,6 +401,7 @@ function openMenu(anchor, items, { align = 'left' } = {}) {
     }
   }
   menu.hidden = false;
+  menu.style.minWidth = width ? `${width}px` : '';
   const r = anchor.getBoundingClientRect();
   const mh = menu.offsetHeight;
   const mw = menu.offsetWidth;
@@ -805,7 +826,8 @@ async function hydrateFacts(box) {
       'Scherm zien en muis/toetsenbord bedienen',
     );
     fact('plug', 'Connectoren', conns.length ? `${conns.length}` : 'geen', () => showView('connectors'), conns.some((c) => c.status === 'connected'), 'MCP-koppelingen');
-    fact('sparkles', 'Skills', skills.length ? `${skills.length}` : 'geen', () => showView('skills'), skills.length > 0, 'Herbruikbare werkwijzen');
+    const skillsOn = skills.filter((s) => s.enabled).length;
+    fact('sparkles', 'Skills', skills.length ? (skillsOn === skills.length ? `${skills.length}` : `${skillsOn}/${skills.length}`) : 'geen', () => showView('skills'), skills.length > 0, 'Herbruikbare werkwijzen');
   } catch {
     box.textContent = '';
   }
@@ -1036,7 +1058,7 @@ function onAgentEvent(ev) {
     if (ev.type === 'user_message' || (ev.type === 'running' && !ev.running)) refreshSessions();
     else renderSessionList();
   }
-  if (ev.type === 'skills_changed' && state.view === 'skills') renderSkills();
+  if (ev.type === 'skills_changed') refreshSkillsUI();
   const s = state.session;
   if (!s || ev.sessionId !== s.id) return;
 
@@ -1695,14 +1717,66 @@ async function importSkills() {
   try {
     const names = await call('skills:import');
     if (names.length) toast(`Geïmporteerd: ${names.join(', ')}`);
-    if (state.view === 'skills') renderSkills();
+    refreshSkillsUI();
   } catch (e) {
     toast(e.message, 'error');
   }
 }
 
+// De skills van de agent, met per skill of hij aan staat. Houdt ook het tellertje
+// naast "Skills" in de sidebar bij (aan/totaal).
+async function updateSkillsBadge() {
+  try {
+    state.skills = await call('skills:list');
+  } catch {
+    state.skills = [];
+  }
+  const el = $('#skills-count');
+  if (el) {
+    const total = state.skills.length;
+    const on = state.skills.filter((s) => s.enabled).length;
+    el.textContent = total ? `${on}/${total}` : '';
+    el.hidden = !total;
+  }
+  return state.skills;
+}
+
+async function refreshSkillsUI() {
+  await updateSkillsBadge();
+  if (state.view === 'skills') await renderSkills();
+}
+
+// Het dropdownmenu achter "Skills" in de sidebar: alle skills met een schakelaar erbij.
+async function skillsMenu(anchor) {
+  const list = await updateSkillsBadge();
+  const on = list.filter((s) => s.enabled).length;
+  const items = [{ header: true, label: list.length ? `Skills · ${on} van ${list.length} aan` : 'Skills' }];
+  if (!list.length) {
+    items.push({ label: 'Nog geen skills.', desc: 'Klik om er een te maken', icon: 'plus', action: () => showView('skills') });
+  }
+  for (const s of list) {
+    const desc = (s.description || '').trim();
+    items.push({
+      toggle: true,
+      icon: 'sparkles',
+      label: s.name,
+      desc: desc.length > 90 ? `${desc.slice(0, 89)}…` : desc,
+      on: s.enabled,
+      onChange: async (next) => {
+        await call('skills:toggle', s.id, next);
+        await updateSkillsBadge();
+        if (state.view === 'skills') await renderSkills();
+      },
+    });
+  }
+  if (list.length) items.push('-');
+  items.push({ label: 'Skill importeren', icon: 'download', action: importSkills });
+  items.push({ label: 'Alle skills beheren', desc: 'Nieuwe skill, bewerken, verwijderen', icon: 'settings', action: () => showView('skills') });
+  openMenu(anchor, items, { width: 300 });
+}
+
 async function renderSkills() {
-  const skills = await call('skills:list');
+  const skills = (await updateSkillsBadge()) || [];
   const inner = pageShell(
     'skills',
     'Skills',
@@ -1720,7 +1794,10 @@ async function renderSkills() {
         h(
           'div',
           { class: 'card-side' },
-          toggleSwitch(s.enabled, (on) => call('skills:toggle', s.id, on)),
+          toggleSwitch(s.enabled, async (on) => {
+            await call('skills:toggle', s.id, on);
+            updateSkillsBadge();
+          }),
           iconBtn('more', 'Meer', (e) =>
             openMenu(
               e.currentTarget,
@@ -1734,7 +1811,7 @@ async function renderSkills() {
                   action: async () => {
                     if (!(await confirmDialog('Skill verwijderen?', `"${s.name}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
                     await call('skills:delete', s.id);
-                    renderSkills();
+                    refreshSkillsUI();
                   },
                 },
               ],
@@ -1768,7 +1845,7 @@ function skillModal() {
           if (!name.value.trim()) return toast('Geef de skill een naam', 'error');
           await call('skills:create', { name: name.value.trim(), description: desc.value.trim(), instructions: body.value });
           closeModal();
-          renderSkills();
+          refreshSkillsUI();
         }),
       ),
     ),
@@ -1792,7 +1869,7 @@ async function skillEditor(id) {
         btn('Opslaan', 'primary', async () => {
           await call('skills:save', id, ta.value);
           closeModal();
-          renderSkills();
+          refreshSkillsUI();
         }),
       ),
     ),
@@ -3154,7 +3231,13 @@ function bindPanel() {
 function bindUI() {
   document.querySelectorAll('.ic-slot').forEach((el) => el.replaceWith(icon(el.dataset.icon, 16)));
   $('#btn-new').addEventListener('click', newChat);
-  document.querySelectorAll('.side-btn[data-view]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+  document.querySelectorAll('.side-btn[data-view]').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      // De Skills-knop opent het snelmenu (aan/uit per skill); ⌘-klik gaat naar de pagina.
+      if (b.dataset.menu && !e.metaKey && !e.altKey) return skillsMenu(b);
+      showView(b.dataset.view);
+    }),
+  );
   $('#panel-close').append(icon('x', 15));
   $('#pb-back').append(icon('back', 15));
   $('#pb-fwd').append(icon('forward', 15));
@@ -3265,7 +3348,7 @@ function bindUI() {
       try {
         const names = await call('skills:importPaths', paths);
         toast(`Geïmporteerd: ${names.join(', ')}`);
-        renderSkills();
+        refreshSkillsUI();
       } catch (err) {
         toast(err.message, 'error');
       }
@@ -3351,6 +3434,7 @@ async function init() {
   brainui = createBrain({ h, icon, call, toast, openModal, closeModal, confirmDialog, btn, iconBtn, md, state, askInChat });
   bindUI();
   applyBrand();
+  updateSkillsBadge();
   api.on('blox:changed', (st) => blox.onStatus(st));
   blox.refreshStatus();
   git.refresh();
