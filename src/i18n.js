@@ -45,6 +45,15 @@ const MAIN_STRINGS = {
     'Deze repo bestaat nog niet op GitHub.': 'This repo does not exist on GitHub yet.',
     'Gebruiker heeft geannuleerd.': 'The user cancelled.',
     'Geannuleerd.': 'Cancelled.',
+    // The Brain
+    'Titel ontbreekt.': 'A title is required.',
+    'Deze herinnering bestaat niet (meer).': 'This memory no longer exists.',
+    'Eerste herinnering niet gevonden: ': 'First memory not found: ',
+    'Tweede herinnering niet gevonden: ': 'Second memory not found: ',
+    'Een herinnering kan niet aan zichzelf hangen.': 'A memory cannot link to itself.',
+    'Verbinding niet gevonden.': 'Connection not found.',
+    'Deze verbinding bestaat niet.': 'That connection does not exist.',
+    'The Brain is vol (5000 herinneringen). Verwijder eerst iets.': 'The Brain is full (5000 memories). Delete something first.',
     // Study: teksten in de gegenereerde bronweergave (zijpaneel).
     "dia's": 'slides',
     'tabblad(en)': 'sheet(s)',

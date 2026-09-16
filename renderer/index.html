@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="blox.css" />
     <link rel="stylesheet" href="git.css" />
+    <link rel="stylesheet" href="brain.css" />
   </head>
   <body>
     <div id="app">
@@ -35,6 +36,7 @@
           <button class="side-btn" data-view="skills"><span class="ic-slot" data-icon="sparkles"></span>Skills</button>
           <button class="side-btn" data-view="connectors"><span class="ic-slot" data-icon="plug"></span>Connectors</button>
           <button id="btn-git" class="side-btn git-side" title="GitHub-sync: alles wat je hebt gedaan per project naar GitHub"><span class="ic-slot" data-icon="git"></span>GitHub<span id="git-dot" class="blox-dot"></span></button>
+          <button id="btn-brain" class="side-btn brain-side" data-view="brain" title="The Brain: het tweede geheugen van DawgAgent — alles wat hij over jou en je werk onthoudt, als één graaf"><span class="ic-slot" data-icon="brain"></span>The Brain<span id="brain-count" class="brain-count" hidden></span></button>
           <button id="btn-blox" class="side-btn blox-side" title="BloxCode aan/uit voor deze chat (Roblox Studio)"><span class="ic-slot" data-icon="cube"></span>BloxCode<span id="blox-dot" class="blox-dot"></span></button>
         </div>
         <div id="chat-list" class="chat-list"></div>
@@ -83,6 +85,7 @@
 
         <section id="view-skills" class="view page" hidden></section>
         <section id="view-connectors" class="view page" hidden></section>
+        <section id="view-brain" class="view page brain-page" hidden></section>
         <section id="view-settings" class="view page" hidden></section>
       </main>
 

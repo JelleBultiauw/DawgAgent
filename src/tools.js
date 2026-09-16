@@ -629,6 +629,122 @@ Dekking bijwerken: coverage:[{source:"Reeksen1.pptx", items:[{n:3,status:"geoefe
   },
 ];
 
+// ---------- The Brain (tweede geheugen) ----------
+const BRAIN_TYPES = require('./brain').TYPES;
+
+const BRAIN = [
+  {
+    name: 'brain_search',
+    kind: 'read',
+    description: `Zoek in The Brain — je tweede geheugen: blijvende herinneringen over de gebruiker, zijn projecten, beslissingen, mensen, actiepunten, ideeën en bronnen (de graaf in de zijbalk). Zoek hier ALTIJD eerst in voordat je iets zegt over zijn eigen wereld ("wat hadden we ook alweer besloten over …", "hoe wil hij dat ik …", "waar ging dat project over"). Geeft id, titel, type, tags en een stukje tekst; lees een treffer helemaal met brain_read.`,
+    parameters: obj(
+      {
+        query: { type: 'string', description: 'Zoekwoorden of de vraag.' },
+        type: { type: 'string', enum: BRAIN_TYPES, description: 'Alleen dit type herinnering.' },
+        limit: { type: 'integer', description: 'Max. aantal treffers (standaard 8).' },
+      },
+      ['query'],
+    ),
+    summary: (a) => `The Brain: "${short(a.query, 50)}"`,
+    async run(a) {
+      const brain = require('./brain');
+      const hits = brain.search(a.query, { limit: a.limit || 8, type: a.type });
+      if (!hits.length) {
+        const st = brain.stats();
+        return { text: `Geen herinneringen gevonden voor "${short(a.query, 80)}".${st.nodes ? ` The Brain bevat ${st.nodes} herinneringen — probeer andere woorden of blader met brain_search op een tag.` : ' The Brain is nog leeg.'}` };
+      }
+      const lines = hits.map(
+        (h, i) =>
+          `${i + 1}. [${h.id}] ${h.title} (${h.type})${h.pinned ? ' · vastgezet' : ''}\n   ${h.tags.length ? `#${h.tags.join(' #')} · ` : ''}score ${h.score}\n   ${h.snippet || '(geen tekst)'}`,
+      );
+      return { text: `${hits.length} treffer${hits.length === 1 ? '' : 's'} in The Brain:\n\n${lines.join('\n\n')}` };
+    },
+  },
+  {
+    name: 'brain_read',
+    kind: 'read',
+    description: 'Lees één herinnering uit The Brain helemaal (tekst, tags, waaraan hij hangt). Geef het id uit brain_search, of de titel.',
+    parameters: obj({ id: { type: 'string', description: 'Id (m…) of titel.' } }, ['id']),
+    summary: (a) => short(a.id, 60),
+    async run(a) {
+      const brain = require('./brain');
+      const { node, connections } = brain.get(a.id);
+      const lines = [
+        `[${node.id}] ${node.title}`,
+        `Type: ${node.type}${node.pinned ? ' · vastgezet' : ''}${node.tags.length ? ` · #${node.tags.join(' #')}` : ''}`,
+        `Bijgewerkt: ${new Date(node.updated).toISOString().slice(0, 16).replace('T', ' ')} · gemaakt: ${new Date(node.created).toISOString().slice(0, 10)}`,
+        '',
+        node.content || '(geen tekst)',
+      ];
+      if (connections.length) {
+        lines.push('', `Verbindingen (${connections.length}):`);
+        for (const c of connections) lines.push(`- [${c.id}] ${c.title} (${c.type})${c.label ? ` — ${c.label}` : ''}${c.auto ? ' (automatisch)' : ''}`);
+      }
+      return { text: lines.join('\n') };
+    },
+  },
+  {
+    name: 'brain_write',
+    kind: 'edit',
+    description: `Schrijf of werk een herinnering bij in The Brain — je blijvende geheugen dat tussen alle chats bewaard blijft en dat de gebruiker in de zijbalk ziet. Doe dit uit jezelf (zonder te vragen) zodra je iets duurzaams leert over de gebruiker of zijn werk: een voorkeur, beslissing, projectdetail, plan, persoon, afspraak, conclusie of volgende stap. Eén feit per herinnering, korte titel, 2–5 tags, geen geheimzinnige dingen (sleutels, wachtwoorden). Bestaat de herinnering al (zelfde titel, of geef het id mee), dan wordt hij bijgewerkt in plaats van gedupliceerd. Verbind verwanten meteen via links:[{to:"titel of id", label:"waarom"}].`,
+    parameters: obj(
+      {
+        title: { type: 'string', description: 'Korte titel; dit is ook de sleutel (zelfde titel = bijwerken).' },
+        content: { type: 'string', description: 'De herinnering zelf: kort, concreet, één feit of beslissing.' },
+        type: { type: 'string', enum: BRAIN_TYPES, description: 'note (standaard), project, person, decision, task, idea, meeting, source.' },
+        tags: { type: 'array', items: { type: 'string' }, description: '2–5 tags, bv. ["dawgagent", "voorkeur"].' },
+        links: { type: 'array', items: { type: 'object' }, description: 'Verbindingen naar bestaande herinneringen: [{to:"titel of id", label:"waarom"}].' },
+        pinned: { type: 'boolean', description: 'Altijd bovenaan in de systeemprompt (voor kernvoorkeuren).' },
+        id: { type: 'string', description: 'Alleen om een bestaande herinnering bij te werken.' },
+      },
+      ['title'],
+    ),
+    summary: (a) => `Onthouden: ${short(a.title, 60)}`,
+    detail: (a) => `${a.title}\n\n${a.content || ''}`.slice(0, 2000),
+    async run(a) {
+      const brain = require('./brain');
+      const { node, created, auto, notes } = brain.upsert({ ...a, origin: 'agent' });
+      const parts = [`${created ? 'Onthouden' : 'Bijgewerkt'}: [${node.id}] ${node.title} (${node.type})`];
+      if (node.tags.length) parts.push(`Tags: #${node.tags.join(' #')}`);
+      if (auto) parts.push(`${auto} verbinding${auto === 1 ? '' : 'en'} gelegd op gedeelde tags`);
+      if (notes?.length) parts.push(...notes);
+      parts.push('Zichtbaar in de zijbalk onder The Brain.');
+      return { text: parts.join('\n') };
+    },
+  },
+  {
+    name: 'brain_link',
+    kind: 'edit',
+    description: 'Verbind twee herinneringen in The Brain met elkaar (een laag label maakt de relatie duidelijk, bv. "hoort bij", "beslissing over", "werkt met").',
+    parameters: obj(
+      {
+        from: { type: 'string', description: 'Id of titel van de eerste herinnering.' },
+        to: { type: 'string', description: 'Id of titel van de tweede.' },
+        label: { type: 'string', description: 'Kort label voor de verbinding.' },
+      },
+      ['from', 'to'],
+    ),
+    summary: (a) => `${short(a.from, 30)} ↔ ${short(a.to, 30)}`,
+    async run(a) {
+      const brain = require('./brain');
+      const { from, to, link } = brain.link(a.from, a.to, a.label);
+      return { text: `Verbonden: "${from.title}" ↔ "${to.title}"${link?.label ? ` (${link.label})` : ''}.` };
+    },
+  },
+  {
+    name: 'brain_delete',
+    kind: 'edit',
+    description: 'Verwijder een herinnering uit The Brain — bijvoorbeeld als iets niet meer waar is of als de gebruiker zegt dat je het moet vergeten.',
+    parameters: obj({ id: { type: 'string', description: 'Id of titel.' } }, ['id']),
+    summary: (a) => `Vergeten: ${short(a.id, 50)}`,
+    async run(a) {
+      const brain = require('./brain');
+      const node = brain.remove(a.id);
+      return { text: `Vergeten: "${node.title}" (en de verbindingen eromheen).` };
+    },
+  },
+];
+
 // ---------- computer use ----------
 const COMPUTER = [
   {
@@ -773,7 +889,7 @@ function normalizeSchema(schema) {
 }
 
 function buildTools({ cfg, connectors }) {
-  const tools = [...CORE, ...PANEL, ...STUDY];
+  const tools = [...CORE, ...PANEL, ...STUDY, ...BRAIN];
   if (cfg.browser !== false) tools.push(...BROWSER);
   if (cfg.computerUse) tools.push(...COMPUTER);
   for (const def of connectors.toolDefs()) {

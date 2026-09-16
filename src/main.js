@@ -784,6 +784,23 @@ handle('git:removeProject', (id) => {
   return gitsync.status();
 });
 
+// ---------- The Brain (tweede geheugen) ----------
+const brain = require('./brain');
+
+// Wanneer de agent (of de gebruiker in de interface) iets in The Brain schrijft,
+// licht de graaf in de zijbalk op. Daarvoor gaat er een event naar de interface.
+brain.setWatcher((info) => send('brain:changed', info || {}));
+
+handle('brain:list', () => brain.list());
+handle('brain:stats', () => brain.stats());
+handle('brain:get', (id) => brain.get(id));
+handle('brain:search', (query, opts) => brain.search(query, opts || {}));
+handle('brain:save', (patch) => brain.upsert({ ...(patch || {}), origin: (patch && patch.origin) || 'user' }));
+handle('brain:delete', (id) => brain.remove(id));
+handle('brain:link', (from, to, label) => brain.link(from, to, label));
+handle('brain:unlink', (from, to) => brain.unlink(from, to));
+handle('brain:overview', () => ({ text: brain.promptOverview(), ...brain.stats() }));
+
 handle('blox:status', () => bloxStatus());
 handle('blox:connect', () => bloxConnect());
 handle('blox:ensure', async () => {

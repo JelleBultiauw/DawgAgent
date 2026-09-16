@@ -3,6 +3,7 @@ import DOMPurify from '../node_modules/dompurify/dist/purify.es.mjs';
 import hljs from './vendor/highlight.js';
 import { createBlox, BLOX_ICONS, BLOX_TOOL_META } from './bloxui.js';
 import { createGit } from './gitui.js';
+import { createBrain, BRAIN_ICONS } from './brainui.js';
 import { t, dateLocale } from './i18n.js';
 
 const api = window.orka;
@@ -75,7 +76,7 @@ const ICONS = {
   back: '<path d="m15 18-6-6 6-6"/>',
   forward: '<path d="m9 18 6-6-6-6"/>',
 };
-Object.assign(ICONS, BLOX_ICONS);
+Object.assign(ICONS, BLOX_ICONS, BRAIN_ICONS);
 
 function icon(name, size = 16) {
   const span = document.createElement('span');
@@ -311,6 +312,11 @@ const TOOL_META = {
   computer_open_app: ['App geopend', 'monitor'],
   computer_wait: ['Wachten', 'clock'],
   browser: ['Browser', 'globe'],
+  brain_search: ['The Brain doorzocht', 'search'],
+  brain_read: ['Herinnering gelezen', 'brain'],
+  brain_write: ['Onthouden', 'brain'],
+  brain_link: ['Verbonden', 'link'],
+  brain_delete: ['Vergeten', 'trash'],
 };
 const toolLabel = (n) => {
   const label = TOOL_META[n]?.[0] || BLOX_TOOL_META[n]?.[0];
@@ -501,7 +507,7 @@ function toggleSwitch(on, onChange) {
 // ---------- views ----------
 function showView(view) {
   state.view = view;
-  for (const v of ['chat', 'skills', 'connectors', 'settings']) $(`#view-${v}`).hidden = v !== view;
+  for (const v of ['chat', 'skills', 'connectors', 'brain', 'settings']) $(`#view-${v}`).hidden = v !== view;
   document.querySelectorAll('.side-btn[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $('#usage').hidden = view !== 'chat' || !state.session?.usage?.lastPrompt;
   if (view === 'chat') {
@@ -511,6 +517,7 @@ function showView(view) {
     setTopTitle('');
     if (view === 'skills') renderSkills();
     if (view === 'connectors') renderConnectors();
+    if (view === 'brain') brainui.open();
     if (view === 'settings') renderSettings();
   }
   renderSessionList();
@@ -3235,6 +3242,20 @@ let blox = null;
 // ---------- GitHub-sync ----------
 let git = null;
 
+// ---------- The Brain ----------
+let brainui = null;
+
+// De agent (of de gebruiker) schrijft in The Brain: laat de graaf oplichten.
+// Vraag in de chat stellen vanuit The Brain: het bericht klaarzetten in het invoerveld.
+function askInChat(text) {
+  showView('chat');
+  const el = input();
+  el.value = text;
+  autosize();
+  el.focus();
+  el.setSelectionRange(el.value.length, el.value.length);
+}
+
 function addPending(att) {
   state.pending.push(att);
   renderPending();
@@ -3284,12 +3305,15 @@ async function init() {
     renderComposer: () => renderComposer(),
   });
   git = createGit({ h, icon, call, toast, openModal, closeModal, openMenu, btn, iconBtn, confirmDialog, settingRow, toggleSwitch, fmtWhen, state });
+  brainui = createBrain({ h, icon, call, toast, openModal, closeModal, confirmDialog, btn, iconBtn, md, state, askInChat });
   bindUI();
   applyBrand();
   api.on('blox:changed', (st) => blox.onStatus(st));
   blox.refreshStatus();
   git.refresh();
+  brainui.refresh();
   api.on('git:changed', () => git.refresh());
+  api.on('brain:changed', (info) => brainui.onChanged(info));
   api.on('agent:event', onAgentEvent);
   api.on('browser:changed', () => browserRefresh?.());
   api.on('sessions:changed', () => refreshSessions());

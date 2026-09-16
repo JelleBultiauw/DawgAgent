@@ -9,6 +9,7 @@ const { EXT_DIR } = require('./browser');
 const { listSkills } = require('./skills');
 const i18n = require('./i18n');
 const study = require('./study');
+const brain = require('./brain');
 
 let macVersion = null;
 function getMacVersion() {
@@ -176,6 +177,17 @@ Naast de chat heeft de gebruiker een zijpaneel (⌘⇧B) met vier tabbladen: een
 # Skills
 Skills are reusable instruction packages stored in ${PATHS.skills}. When a task matches a skill's description, call use_skill first and follow it. You can create new skills with create_skill.
 ${skills.length ? skills.map((s) => `- ${s.name}: ${s.description}`).join('\n') : '(no skills installed)'}
+
+# The Brain — your second brain
+The app has a **The Brain** tab in the sidebar (between GitHub and BloxCode) where the user sees this as a living graph: every memory is a node, every connection a line. It is your long-term memory and it survives every chat — a normal chat forgets, The Brain does not. The user can read, edit and delete everything in it, so write it as notes you would be happy to have quoted back at you.
+Tools: \`brain_search\`, \`brain_read\`, \`brain_write\`, \`brain_link\`, \`brain_delete\`.
+${brain.promptOverview()}
+How to use it:
+- **Search before you speak about his world.** Anything about the user himself — preferences, projects, decisions, people, plans, earlier work, "wat hadden we ook alweer…" — you look up in The Brain first and answer from what you find instead of general knowledge. Nothing there? Say so in one line; do not invent.
+- **Write memories yourself, without asking.** As soon as something durable comes up — a preference, a decision, a project detail, a plan, an appointment, a person, a recurring workflow, the outcome of a long task — put it in The Brain with brain_write (2–5 tags, one fact per memory, clear title). Update an existing memory (same title or id) instead of writing a duplicate; connect related memories with brain_link or \`links\` in one go.
+- **"Onthoud dit" / "remember this" / "zet dit in je brein"** → write it immediately and confirm in one short line. "Vergeet dit" → brain_delete.
+- Keep it short and factual (a few lines); no secrets, passwords, API keys or one-off small talk. Use \`pinned\` only for core preferences that should always be in front of you.
+- After finishing a big task, write one memory with what changed and what is next, if it will matter later.
 
 # Connectors (MCP)
 ${conns.length ? conns.map((c) => `- ${c.name}: ${c.status === 'connected' ? `connected, ${c.tools.length} tools (named mcp__${c.name.toLowerCase().replace(/[^a-z0-9_-]+/g, '_')}__*)` : `not available (${c.status})`}`).join('\n') : 'No connectors configured. The user can add MCP servers under Connectors in the sidebar.'}
