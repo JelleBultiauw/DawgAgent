@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, nativeTheme, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const { execFileSync, execFile } = require('child_process');
 
@@ -444,6 +445,24 @@ handle('sessions:sideContext', (id) => {
   return parent ? { id: parent.id, title: parent.title } : null;
 });
 handle('sessions:rename', (id, title) => store.renameSession(id, title));
+
+// Vastzetten en groeperen: de zijbalk toont vastgezette chats bovenaan en per groep.
+// Staat er een beurt te draaien, dan krijgt het live-object dezelfde vlag — anders zou de
+// agent hem bij de volgende opslag weer wissen.
+handle('sessions:pin', (id, pinned) => {
+  const live = agent.live(id);
+  if (live) live.pinned = Boolean(pinned);
+  return store.setSessionFlags(id, { pinned: Boolean(pinned) });
+});
+handle('sessions:setGroup', (id, groupId) => {
+  const live = agent.live(id);
+  if (live) live.group = groupId || null;
+  return store.setSessionFlags(id, { group: groupId || null });
+});
+handle('groups:list', () => store.chatGroups());
+handle('groups:create', (name) => store.createChatGroup(name));
+handle('groups:rename', (id, name) => store.renameChatGroup(id, name));
+handle('groups:delete', (id) => store.deleteChatGroup(id));
 handle('sessions:delete', async (id) => {
   agent.stop(id);
   // De zijchats van deze chat gaan mee.
@@ -462,13 +481,16 @@ handle('sessions:delete', async (id) => {
   if (changed) saveTabChats();
 });
 handle('sessions:setWorkspace', (id, dir) => {
+  // Geen map (of een map die niet meer bestaat) = terug naar de thuismap. Zo kun je een
+  // werkmap ook weer loslaten.
+  const target = dir && fs.existsSync(dir) ? dir : os.homedir();
   const s = agent.live(id) || store.loadSession(id);
   if (s) {
-    s.workspace = dir;
+    s.workspace = target;
     store.saveSession(s);
   }
-  store.setConfig({ workspace: dir });
-  return dir;
+  store.setConfig({ workspace: target });
+  return target;
 });
 
 // Study-modus per chat: 'off' | 'study' | 'test' (proeftoets).

@@ -32,7 +32,9 @@ Bij de eerste start plak je je DeepSeek API-sleutel (aan te maken op platform.de
 
 | Onderdeel | Waar |
 |---|---|
-| Werkmap kiezen | map-knop onder het invoerveld |
+| Werkmap kiezen of loslaten | werkmap-chip onder het invoerveld → menu · *Loslaten* brengt je terug naar je thuismap |
+| Chats vastzetten | pin-knopje bij een chat, rechtsklik, of sleep de chat naar boven op "Vastgezet" |
+| Chats groeperen | sleep een chat op een andere chat of op een groepskop · rechtsklik voor "Nieuwe groep…" · groepsnaam hernoemen met een dubbelklik |
 | Goedkeuring | *Vraag eerst* · *Auto-bewerken* (standaard) · *Volledig automatisch* |
 | Model & nadenken | rechtsonder in het invoerveld (Flash ziet afbeeldingen) |
 | Study / Proeftoets | keuzemenu in het invoerveld (naast de goedkeuringsknop) |

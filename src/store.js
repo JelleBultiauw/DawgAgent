@@ -44,6 +44,7 @@ const DEFAULTS = {
   panelTab: 'chat',
   panelWidth: 400,
   panelUrl: 'https://www.google.com', // startpagina van de browser in het zijpaneel
+  chatGroups: [], // eigen chatgroepen in de zijbalk: [{ id, name, created }]
 };
 
 function readJson(file, fallback) {
@@ -135,8 +136,60 @@ function saveSession(s) {
   if (s.parentId) rec.parentId = s.parentId; // zijchat: hoort bij de chat in het hoofdvenster
   if (s.kind) rec.kind = s.kind; // 'blox' = BloxCode staat aan in deze chat
   if (s.study && s.study !== 'off') rec.study = s.study; // 'study' | 'test' = study-modus in deze chat
+  if (s.pinned) rec.pinned = true; // vastgezet bovenaan de zijbalk
+  if (s.group) rec.group = s.group; // id van de chatgroep waarin hij zit
   index[s.id] = rec;
   saveIndex();
+}
+
+// Vastzetten of in een groep zetten (groupId null = uit de groep).
+function setSessionFlags(id, patch = {}) {
+  const s = loadSession(id);
+  if (!s) return null;
+  if ('pinned' in patch) s.pinned = Boolean(patch.pinned);
+  if ('group' in patch) s.group = patch.group || null;
+  saveSession(s);
+  return index[id] || null;
+}
+
+// ---------- chatgroepen ----------
+// Groepen staan in de instellingen (config.json): [{ id, name, created }]. De chats zelf
+// wijzen met hun id naar de groep, zodat een groep verwijderen nooit chats kan kwijtraken.
+function chatGroups() {
+  const groups = getConfig().chatGroups;
+  return Array.isArray(groups) ? groups : [];
+}
+
+function makeGroupId() {
+  return `g${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`;
+}
+
+function createChatGroup(name) {
+  const clean = String(name || '').trim().slice(0, 60);
+  const group = { id: makeGroupId(), name: clean || require('./i18n').t('Nieuwe groep'), created: Date.now() };
+  setConfig({ chatGroups: [...chatGroups(), group] });
+  return group;
+}
+
+function renameChatGroup(id, name) {
+  const clean = String(name || '').trim().slice(0, 60);
+  if (!clean) return null;
+  setConfig({ chatGroups: chatGroups().map((g) => (g.id === id ? { ...g, name: clean } : g)) });
+  return clean;
+}
+
+// Groep weg: de chats blijven bestaan en vallen terug in de gewone lijst.
+function deleteChatGroup(id) {
+  setConfig({ chatGroups: chatGroups().filter((g) => g.id !== id) });
+  for (const rec of Object.values(index)) {
+    if (rec.group !== id) continue;
+    const s = loadSession(rec.id);
+    if (s && s.group === id) {
+      s.group = null;
+      saveSession(s); // werkt ook de index bij
+    }
+  }
+  return true;
 }
 
 // Zijchats (het chatpaneel naast de chat) blijven uit de gewone chatlijst.
@@ -208,5 +261,10 @@ module.exports = {
   sideSessions,
   renameSession,
   deleteSession,
+  setSessionFlags,
+  chatGroups,
+  createChatGroup,
+  renameChatGroup,
+  deleteChatGroup,
   filesDir,
 };

@@ -27,6 +27,7 @@ const MAIN_STRINGS = {
     'Skill niet gevonden': 'Skill not found',
     'Map niet gevonden.': 'Folder not found.',
     'Chat niet gevonden.': 'Chat not found.',
+    'Nieuwe groep': 'New group',
     'Wacht tot deze chat klaar is met de beurt en probeer het opnieuw.': 'Wait until this chat has finished its turn and try again.',
     'Geen SKILL.md gevonden in wat je hebt gekozen.': 'No SKILL.md found in what you picked.',
     'Dit lijkt geen geldige DeepSeek-sleutel. Hij begint met "sk-" — kopieer hem opnieuw van platform.deepseek.com.': 'This does not look like a valid DeepSeek key. It starts with "sk-" — copy it again from platform.deepseek.com.',

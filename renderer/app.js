@@ -259,6 +259,7 @@ const state = {
   cfg: null,
   info: null,
   sessions: [],
+  groups: [], // chatgroepen in de zijbalk
   session: null,
   view: 'chat',
   pending: [],
@@ -585,8 +586,419 @@ async function setAgentMode(secret) {
 
 // ---------- sidebar ----------
 async function refreshSessions() {
-  [state.sessions] = await Promise.all([call('sessions:list'), blox ? blox.refreshSessions() : null]);
+  const [sessions, groups] = await Promise.all([
+    call('sessions:list'),
+    call('groups:list').catch(() => []),
+    blox ? blox.refreshSessions() : null,
+  ]);
+  state.sessions = sessions;
+  state.groups = Array.isArray(groups) ? groups : [];
   renderSessionList();
+}
+
+// Ingeklapte groepen onthouden we op deze Mac (het is alleen hoe de lijst eruitziet).
+const COLLAPSE_KEY = 'dawg.collapsedChatGroups';
+
+function collapsedGroups() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function toggleGroupCollapsed(id) {
+  const set = collapsedGroups();
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+  try {
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+  } catch {}
+}
+
+/** De groep waarin deze chat zit (null als hij nergens in zit of de groep weg is). */
+function groupOf(s) {
+  if (!s?.group) return null;
+  return (state.groups || []).find((g) => g.id === s.group) || null;
+}
+
+async function togglePin(s) {
+  await call('sessions:pin', s.id, !s.pinned);
+  toast(s.pinned ? 'Losgemaakt' : 'Vastgezet');
+  refreshSessions();
+}
+
+async function setChatGroup(s, groupId) {
+  await call('sessions:setGroup', s.id, groupId);
+  refreshSessions();
+}
+
+async function newGroupWith(s, names = []) {
+  const group = await call('groups:create', '');
+  await call('sessions:setGroup', s.id, group.id);
+  if (s.pinned) await call('sessions:pin', s.id, false);
+  for (const id of names) {
+    await call('sessions:setGroup', id, group.id);
+    const other = (state.sessions || []).find((x) => x.id === id);
+    if (other?.pinned) await call('sessions:pin', id, false);
+  }
+  await refreshSessions();
+  return group;
+}
+
+// Dubbelklikken op een groepsnaam: meteen in de lijst zelf hernoemen.
+function renameGroupInline(group, nameEl) {
+  const input = h('input', { class: 'chat-groupinput', value: group.name, dataset: { i18nSkip: '' } });
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const finish = async (save) => {
+    const value = input.value.trim();
+    if (!input.isConnected) return;
+    input.replaceWith(nameEl);
+    if (!save || !value || value === group.name) return;
+    await call('groups:rename', group.id, value);
+    refreshSessions();
+  };
+  input.addEventListener('pointerdown', (e) => e.stopPropagation());
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+function chatGroupHead(label, opts = {}) {
+  const { group, pinned, collapsed, count, drop } = opts;
+  const nameEl = h(
+    'span',
+    { class: 'chat-groupname', dataset: group ? { i18nSkip: '' } : {}, title: group ? 'Dubbelklik om te hernoemen' : label },
+    label,
+  );
+  if (group) nameEl.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    renameGroupInline(group, nameEl);
+  });
+  const actions = group
+    ? h(
+        'span',
+        { class: 'chat-group-actions' },
+        iconBtn('pencil', 'Groep hernoemen', async () => {
+          const naam = await promptDialog('Groep hernoemen', group.name);
+          if (!naam) return;
+          await call('groups:rename', group.id, naam);
+          refreshSessions();
+        }),
+        iconBtn('trash', 'Groep verwijderen', async () => {
+          if (!(await confirmDialog('Groep verwijderen?', `De chats uit "${group.name}" blijven bestaan en komen gewoon in de lijst te staan.`, 'Verwijderen', true))) return;
+          await call('groups:delete', group.id);
+          toast('Groep verwijderd');
+          refreshSessions();
+        }),
+      )
+    : null;
+  return h(
+    'div',
+    { class: `chat-group ${group ? 'chat-grouphead' : ''}${pinned ? ' chat-grouppinned' : ''}${collapsed ? ' collapsed' : ''}`, dataset: drop ? { drop } : {} },
+    group
+      ? h(
+          'button',
+          {
+            class: 'chat-chevron',
+            title: collapsed ? 'Uitklappen' : 'Inklappen',
+            onclick: (e) => {
+              e.stopPropagation();
+              toggleGroupCollapsed(group.id);
+              renderSessionList();
+            },
+          },
+          icon(collapsed ? 'chevron' : 'down', 12),
+        )
+      : null,
+    pinned ? icon('pin', 12) : null,
+    nameEl,
+    count != null ? h('span', { class: 'chat-count' }, String(count)) : null,
+    actions,
+  );
+}
+
+function chatItemRow(s) {
+  const active = state.view === 'chat' && state.session?.id === s.id;
+  const group = groupOf(s);
+  const badges = [
+    s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
+    s.study ? h('span', { class: 'chat-kind study', title: s.study === 'test' ? 'Proeftoets staat aan in deze chat' : 'Study staat aan in deze chat' }, icon('bulb', 12)) : null,
+  ].filter(Boolean);
+  const row = h(
+    'div',
+    {
+      class: `chat-item ${active ? 'active' : ''}${s.pinned ? ' pinned' : ''}`,
+      dataset: { id: s.id, drop: s.pinned ? 'pin' : group ? `group:${group.id}` : 'new-group' },
+      onclick: () => {
+        if (Date.now() - lastDragEnd < 260) return; // net gesleept: niet ook nog openen
+        openSession(s.id);
+      },
+      oncontextmenu: (e) => chatContextMenu(s, e),
+      title: `${s.title}${s.kind === 'blox' ? ' · BloxCode' : ''}${s.study ? (s.study === 'test' ? ' · Proeftoets' : ' · Study') : ''}${group ? ` · ${group.name}` : ''}`,
+    },
+    ...badges,
+    s.running ? h('span', { class: 'run-dot' }) : null,
+    h('span', { class: 'chat-title' }, s.title || 'Chat'),
+    h(
+      'span',
+      { class: 'chat-actions' },
+      iconBtn('pin', s.pinned ? 'Van boven losmaken' : 'Vastzetten', () => togglePin(s), s.pinned ? 'on' : ''),
+      iconBtn('pencil', 'Hernoemen', async () => {
+        const naam = await promptDialog('Chat hernoemen', s.title);
+        if (!naam) return;
+        await call('sessions:rename', s.id, naam);
+        if (state.session?.id === s.id) {
+          state.session.title = naam;
+          setTopTitle(naam);
+        }
+        refreshSessions();
+      }),
+      iconBtn('trash', 'Verwijderen', async () => {
+        if (!(await confirmDialog('Chat verwijderen?', `"${s.title}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
+        await call('sessions:delete', s.id);
+        if (state.session?.id === s.id) await newChat();
+        refreshSessions();
+      }),
+    ),
+  );
+  row.addEventListener('pointerdown', (e) => startChatDrag(e, s, row));
+  return row;
+}
+
+// Rechtsklikken op een chat: vastzetten, in een groep zetten, hernoemen, weg.
+function chatContextMenu(s, e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const group = groupOf(s);
+  const items = [
+    { label: s.pinned ? 'Van boven losmaken' : 'Vastzetten', icon: 'pin', action: () => togglePin(s) },
+    { header: true, label: 'Groepen' },
+    ...(state.groups || []).map((g) => ({ label: g.name, icon: 'folder', checked: g.id === s.group, action: () => setChatGroup(s, g.id) })),
+    { label: 'Nieuwe groep…', icon: 'plus', action: async () => { await newGroupWith(s); toast('Groep gemaakt — sleep er meer chats in'); } },
+    group ? { label: `Uit "${group.name}" halen`, icon: 'x', action: () => setChatGroup(s, null) } : null,
+    '-',
+    {
+      label: 'Hernoemen',
+      icon: 'pencil',
+      action: async () => {
+        const naam = await promptDialog('Chat hernoemen', s.title);
+        if (!naam) return;
+        await call('sessions:rename', s.id, naam);
+        if (state.session?.id === s.id) {
+          state.session.title = naam;
+          setTopTitle(naam);
+        }
+        refreshSessions();
+      },
+    },
+    {
+      label: 'Verwijderen',
+      icon: 'trash',
+      action: async () => {
+        if (!(await confirmDialog('Chat verwijderen?', `"${s.title}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
+        await call('sessions:delete', s.id);
+        if (state.session?.id === s.id) await newChat();
+        refreshSessions();
+      },
+    },
+  ].filter(Boolean);
+  openMenu(e.currentTarget, items, { align: 'left' });
+}
+
+// ---------- chats slepen: op elkaar leggen = groeperen ----------
+// Met de hand in plaats van HTML5-slepen: zo kan de chat zelf aan je muis blijven hangen
+// (een eigen "geest" die met een veer je muis volgt en meekantelt), en kunnen we precies
+// laten zien wat er gebeurt als je hem loslaat.
+let lastDragEnd = 0;
+let dragLayer = null;
+
+function ensureDragLayer() {
+  if (!dragLayer || !dragLayer.isConnected) {
+    dragLayer = h('div', { class: 'chat-draglayer' });
+    document.body.append(dragLayer);
+  }
+  return dragLayer;
+}
+
+function startChatDrag(e, s, row) {
+  if (e.button !== 0) return;
+  if (e.target.closest('.chat-actions, button, input, .chat-groupinput')) return;
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const rect = row.getBoundingClientRect();
+  const listEl = $('#chat-list');
+  const pointer = { x: startX, y: startY };
+  const target = { x: rect.left, y: rect.top };
+  const pos = { x: rect.left, y: rect.top };
+  const group = groupOf(s);
+  let ghost = null;
+  let hint = null;
+  let raf = 0;
+  let tilt = 0;
+  let hoverEl = null;
+  let hoverKey = '';
+  let act = null;
+  let dragging = false;
+
+  const siblings = () => state.sessions || [];
+
+  // Wat gebeurt er als ik hier loslaat?
+  const targetAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el || !listEl.contains(el)) return null;
+    const item = el.closest('.chat-item');
+    if (item) {
+      const other = siblings().find((t) => t.id === item.dataset.id);
+      if (!other || other.id === s.id) return null;
+      const otherGroup = groupOf(other);
+      if (other.pinned) return s.pinned ? null : { key: 'pin', el: item, kind: 'pin', hint: 'Vastzetten' };
+      if (otherGroup) return { key: `g:${otherGroup.id}`, el: item, kind: 'group', groupId: otherGroup.id, hint: otherGroup.name };
+      return { key: `new:${other.id}`, el: item, kind: 'new-group', withId: other.id, hint: 'Groep maken' };
+    }
+    const head = el.closest('.chat-group');
+    if (head && head.dataset.drop) {
+      if (head.dataset.drop === 'pin') {
+        if (s.pinned) return null;
+        return { key: 'pin:head', el: head, kind: 'pin', hint: 'Vastzetten' };
+      }
+      const id = head.dataset.drop.slice(6);
+      if (s.group === id) return null;
+      const g = (state.groups || []).find((x) => x.id === id);
+      return { key: `g:${id}`, el: head, kind: 'group', groupId: id, hint: g ? g.name : 'Groep' };
+    }
+    // leeg stuk van de lijst: hier haal je hem juist uit een groep / van boven
+    if (s.pinned || s.group) return { key: 'loose', el: listEl, kind: 'loose', hint: s.group ? 'Uit groep halen' : 'Van boven losmaken' };
+    return null;
+  };
+
+  const showDrop = (next) => {
+    if (next?.key === hoverKey) return;
+    hoverKey = next?.key || '';
+    if (hoverEl) hoverEl.classList.remove('drop-into');
+    hoverEl = next?.el || null;
+    if (hoverEl) hoverEl.classList.add('drop-into');
+    act = next;
+    if (hint) {
+      hint.textContent = next?.hint || '';
+      hint.hidden = !next;
+    }
+  };
+
+  const tick = () => {
+    // De geest hangt aan je muis: hij loopt een beetje achter en kantelt mee.
+    const dx = target.x - pos.x;
+    const dy = target.y - pos.y;
+    pos.x += dx * 0.24;
+    pos.y += dy * 0.24;
+    const wantTilt = Math.max(-15, Math.min(15, dx * 0.45));
+    tilt += (wantTilt - tilt) * 0.16;
+    if (ghost) ghost.style.transform = `translate3d(${pos.x.toFixed(1)}px, ${pos.y.toFixed(1)}px, 0) rotate(${tilt.toFixed(2)}deg) scale(1.035)`;
+    // langs de randen automatisch door de lijst scrollen
+    const r = listEl.getBoundingClientRect();
+    if (pointer.y < r.top + 34) listEl.scrollTop -= 12;
+    else if (pointer.y > r.bottom - 34) listEl.scrollTop += 12;
+    showDrop(targetAt(pointer.x, pointer.y));
+    raf = requestAnimationFrame(tick);
+  };
+
+  const onMove = (ev) => {
+    pointer.x = ev.clientX;
+    pointer.y = ev.clientY;
+    if (!dragging) {
+      if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 6) return;
+      dragging = true;
+      ghost = row.cloneNode(true);
+      ghost.classList.add('chat-ghost');
+      ghost.classList.remove('dragging', 'active', 'drop-into');
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      hint = h('div', { class: 'chat-ghost-hint', hidden: true });
+      ghost.append(hint);
+      ensureDragLayer().append(ghost);
+      row.classList.add('dragging');
+      document.body.classList.add('chat-dragging');
+      raf = requestAnimationFrame(tick);
+    }
+    target.x = rect.left + (ev.clientX - startX);
+    target.y = rect.top + (ev.clientY - startY);
+  };
+
+  const cleanUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', cancel);
+    window.removeEventListener('keydown', onKey);
+    if (raf) cancelAnimationFrame(raf);
+    document.body.classList.remove('chat-dragging');
+    row.classList.remove('dragging');
+    if (hoverEl) hoverEl.classList.remove('drop-into');
+    hoverEl = null;
+    if (ghost) {
+      const g = ghost;
+      g.classList.add('gone');
+      setTimeout(() => g.remove(), 220);
+      ghost = null;
+    }
+  };
+
+  const runDrop = async (drop) => {
+    if (drop.kind === 'pin') {
+      await call('sessions:pin', s.id, true);
+      toast('Vastgezet');
+    } else if (drop.kind === 'group') {
+      await call('sessions:setGroup', s.id, drop.groupId);
+      if (s.pinned) await call('sessions:pin', s.id, false);
+      const g = (state.groups || []).find((x) => x.id === drop.groupId);
+      toast(g ? `Toegevoegd aan "${g.name}"` : 'Toegevoegd aan groep');
+    } else if (drop.kind === 'new-group') {
+      await newGroupWith(s, [drop.withId]);
+      toast('Groep gemaakt — sleep er meer chats in');
+    } else if (drop.kind === 'loose') {
+      if (s.group) {
+        await call('sessions:setGroup', s.id, null);
+        toast('Uit groep gehaald');
+      } else if (s.pinned) {
+        await call('sessions:pin', s.id, false);
+        toast('Losgemaakt');
+      }
+    }
+    await refreshSessions();
+  };
+
+  const onUp = async () => {
+    const drop = dragging ? act : null;
+    if (dragging) lastDragEnd = Date.now();
+    cleanUp();
+    if (!drop) return;
+    try {
+      await runDrop(drop);
+    } catch (err) {
+      toast(String(err.message || err), 'error');
+      refreshSessions();
+    }
+  };
+
+  const cancel = () => {
+    if (dragging) lastDragEnd = Date.now();
+    cleanUp();
+  };
+
+  const onKey = (ev) => {
+    if (ev.key === 'Escape') cancel();
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', cancel);
+  window.addEventListener('keydown', onKey);
 }
 
 function renderSessionList() {
@@ -595,60 +1007,49 @@ function renderSessionList() {
   const isBlox = state.session?.kind === 'blox';
   $('#btn-blox')?.classList.toggle('active', Boolean(isBlox) && state.view === 'chat');
   $('#btn-new').title = isBlox ? 'Nieuwe BloxCode-chat (⌘N)' : 'Nieuwe chat (⌘N)';
-  const sessions = state.sessions;
+  const sessions = state.sessions || [];
   if (!sessions.length) {
     list.append(h('div', { class: 'chat-group' }, 'Chats'), h('div', { class: 'chat-empty' }, 'Nog geen chats'));
     return;
   }
+  const newest = (a, b) => b.updated - a.updated;
+  const collapsed = collapsedGroups();
+
+  // 1. Vastgezet (bovenaan, los van de groepen)
+  const pinned = sessions.filter((s) => s.pinned).sort(newest);
+  if (pinned.length) {
+    list.append(chatGroupHead('Vastgezet', { pinned: true, count: pinned.length, drop: 'pin' }));
+    for (const s of pinned) list.append(chatItemRow(s));
+  }
+
+  // 2. Eigen groepen
+  for (const group of state.groups || []) {
+    const items = sessions.filter((s) => s.group === group.id && !s.pinned).sort(newest);
+    const isCollapsed = collapsed.has(group.id);
+    list.append(chatGroupHead(group.name, { group, count: items.length, collapsed: isCollapsed, drop: `group:${group.id}` }));
+    if (isCollapsed) continue;
+    for (const s of items) list.append(chatItemRow(s));
+  }
+
+  // 3. De rest, op datum
+  const groupIds = new Set((state.groups || []).map((g) => g.id));
+  const rest = sessions.filter((s) => !s.pinned && !groupIds.has(s.group));
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const groups = [
+  const buckets = [
     ['Vandaag', (t) => t >= startToday],
     ['Gisteren', (t) => t >= startToday - 864e5],
     ['Afgelopen 7 dagen', (t) => t >= startToday - 7 * 864e5],
     ['Ouder', () => true],
   ];
   const used = new Set();
-  for (const [name, test] of groups) {
-    const items = sessions.filter((s) => !used.has(s.id) && test(s.updated));
+  for (const [name, test] of buckets) {
+    const items = rest.filter((s) => !used.has(s.id) && test(s.updated));
     if (!items.length) continue;
-    list.append(h('div', { class: 'chat-group' }, name));
+    list.append(chatGroupHead(name));
     for (const s of items) {
       used.add(s.id);
-      const active = state.view === 'chat' && state.session?.id === s.id;
-      const badges = [
-        s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
-        s.study ? h('span', { class: 'chat-kind study', title: s.study === 'test' ? 'Proeftoets staat aan in deze chat' : 'Study staat aan in deze chat' }, icon('bulb', 12)) : null,
-      ].filter(Boolean);
-      list.append(
-        h(
-          'div',
-          { class: `chat-item ${active ? 'active' : ''}`, onclick: () => openSession(s.id), title: `${s.title}${s.kind === 'blox' ? ' · BloxCode' : ''}${s.study ? (s.study === 'test' ? ' · Proeftoets' : ' · Study') : ''}` },
-          ...badges,
-          s.running ? h('span', { class: 'run-dot' }) : null,
-          h('span', { class: 'chat-title' }, s.title || 'Chat'),
-          h(
-            'span',
-            { class: 'chat-actions' },
-            iconBtn('pencil', 'Hernoemen', async () => {
-              const naam = await promptDialog('Chat hernoemen', s.title);
-              if (!naam) return;
-              await call('sessions:rename', s.id, naam);
-              if (state.session?.id === s.id) {
-                state.session.title = naam;
-                setTopTitle(naam);
-              }
-              refreshSessions();
-            }),
-            iconBtn('trash', 'Verwijderen', async () => {
-              if (!(await confirmDialog('Chat verwijderen?', `"${s.title}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
-              await call('sessions:delete', s.id);
-              if (state.session?.id === s.id) await newChat();
-              refreshSessions();
-            }),
-          ),
-        ),
-      );
+      list.append(chatItemRow(s));
     }
   }
 }
@@ -1598,6 +1999,32 @@ async function pickWorkspace() {
   state.cfg.workspace = dir;
   renderComposer();
   if (!state.session.messages.length) renderThread();
+}
+
+// De werkmap-chip: hier kies je een map, of laat je hem weer los (terug naar je thuismap).
+function workspaceMenu(anchor) {
+  const ws = state.session?.workspace || state.cfg.workspace;
+  const home = state.info?.home || '';
+  const inHome = !ws || ws === home;
+  openMenu(
+    anchor,
+    [
+      { header: true, label: 'Werkmap' },
+      { label: shortPath(ws), icon: 'folder', desc: 'Waar DawgAgent nu werkt', checked: true, action: () => {} },
+      { label: 'Werkmap kiezen…', icon: 'folder', action: () => pickWorkspace() },
+      inHome ? null : { label: 'Loslaten (terug naar ~)', icon: 'x', desc: 'Nieuwe chats starten weer in je thuismap', action: () => clearWorkspace() },
+    ].filter(Boolean),
+    { align: 'left' },
+  );
+}
+
+async function clearWorkspace() {
+  const home = await call('sessions:setWorkspace', state.session.id, null);
+  state.session.workspace = home;
+  state.cfg.workspace = home;
+  renderComposer();
+  if (!state.session.messages.length) renderThread();
+  toast('Werkmap losgelaten — je zit weer in je thuismap');
 }
 
 async function toggleComputer() {
@@ -3239,6 +3666,37 @@ function bindPanel() {
 function bindUI() {
   document.querySelectorAll('.ic-slot').forEach((el) => el.replaceWith(icon(el.dataset.icon, 16)));
   $('#btn-new').addEventListener('click', newChat);
+  // Rechtsklikken naast de chats: meteen een lege groep maken om chats in te slepen.
+  $('#chat-list').addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.chat-item, input')) return;
+    const head = e.target.closest('.chat-grouphead');
+    if (head) {
+      e.preventDefault();
+      const id = String(head.dataset.drop || '').slice(6);
+      const group = (state.groups || []).find((g) => g.id === id);
+      if (!group) return;
+      openMenu(
+        head,
+        [
+          { label: 'Groep hernoemen', icon: 'pencil', action: async () => { const naam = await promptDialog('Groep hernoemen', group.name); if (!naam) return; await call('groups:rename', group.id, naam); refreshSessions(); } },
+          {
+            label: 'Groep verwijderen',
+            icon: 'trash',
+            action: async () => {
+              if (!(await confirmDialog('Groep verwijderen?', `De chats uit "${group.name}" blijven bestaan en komen gewoon in de lijst te staan.`, 'Verwijderen', true))) return;
+              await call('groups:delete', group.id);
+              toast('Groep verwijderd');
+              refreshSessions();
+            },
+          },
+        ],
+        { align: 'left' },
+      );
+      return;
+    }
+    e.preventDefault();
+    openMenu($('#chat-list'), [{ label: 'Nieuwe groep…', icon: 'plus', action: async () => { await call('groups:create', ''); refreshSessions(); } }], { align: 'left' });
+  });
   document.querySelectorAll('.side-btn[data-view]').forEach((b) =>
     b.addEventListener('click', (e) => {
       // De Skills-knop opent het snelmenu (aan/uit per skill); ⌘-klik gaat naar de pagina.
@@ -3294,7 +3752,7 @@ function bindUI() {
 
   $('#btn-send').addEventListener('click', sendMessage);
   $('#btn-attach').addEventListener('click', (e) => attachMenu(e.currentTarget));
-  $('#chip-workspace').addEventListener('click', (e) => (state.session?.kind === 'blox' ? blox.studioMenu(e.currentTarget) : pickWorkspace()));
+  $('#chip-workspace').addEventListener('click', (e) => (state.session?.kind === 'blox' ? blox.studioMenu(e.currentTarget) : workspaceMenu(e.currentTarget)));
   $('#chip-mode').addEventListener('click', (e) => (state.session?.kind === 'blox' ? blox.modeMenu(e.currentTarget) : modeMenu(e.currentTarget)));
   $('#chip-study').addEventListener('click', (e) => studyMenu(e.currentTarget));
   $('#chip-blox').addEventListener('click', () => toggleBlox());
