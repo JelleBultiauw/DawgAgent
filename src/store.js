@@ -31,6 +31,10 @@ const DEFAULTS = {
   connectors: [],
   disabledSkills: [],
   maxSteps: 150,
+  // Gewone chats: boven dit aantal tokens aan context wordt het oudere deel van het gesprek
+  // samengevat (0 = nooit). Elke stap in een beurt stuurt de hele geschiedenis opnieuw mee,
+  // dus dit is de grootste besparing op lange chats zonder dat je iets kwijtraakt.
+  compactAtTokens: 80000,
 
   autoTodos: false, // laat DawgAgent standaard een takenlijst bijhouden (Taken-paneel)
   secretAgent: false, // DawgSecretAgent-modus: alleen naam + logo veranderen, verder niets

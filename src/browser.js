@@ -23,6 +23,10 @@ const EXT_DIR = path.join(PATHS.data, 'browser-extension');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Laatste keer dat de extensiemap in de datamap is bijgewerkt (nieuwe bestanden = Chrome
+// moet hem één keer herladen). De interface leest dit via /status.
+let lastSync = { changed: 0, at: 0 };
+
 // ---------- extensiemap klaarzetten in de datamap (stabiel pad voor Chrome) ----------
 function copyTree(src, dst) {
   let changed = 0;
@@ -51,7 +55,9 @@ function copyTree(src, dst) {
 function syncExtension() {
   try {
     if (!fs.existsSync(EXT_SOURCE)) return { dir: EXT_DIR, changed: 0 };
-    return { dir: EXT_DIR, changed: copyTree(EXT_SOURCE, EXT_DIR) };
+    const changed = copyTree(EXT_SOURCE, EXT_DIR);
+    lastSync = { changed, at: Date.now() };
+    return { dir: EXT_DIR, changed };
   } catch (e) {
     return { dir: EXT_DIR, changed: 0, error: e.message };
   }
@@ -103,6 +109,8 @@ class BrowserBridge extends EventEmitter {
       dir: EXT_DIR,
       source: EXT_SOURCE,
       browsers: BROWSERS,
+      extChanged: lastSync.changed,
+      extSyncedAt: lastSync.at,
     };
   }
 

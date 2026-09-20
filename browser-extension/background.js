@@ -818,8 +818,8 @@ async function afterNav(tabId, prefix, p) {
   const head = `${prefix}\n${tab ? `${tab.title || '(geen titel)'} — ${tab.url}` : 'onbekend'}`;
   if (p.snapshot === false) return { ok: true, text: head };
   const snap = await pageStep(tabId, 'snapshot', {
-    max_chars: clamp(p.max_chars, 100, 4000, 1100),
-    max_elements: clamp(p.max_elements, 0, 60, 25),
+    max_chars: clamp(p.max_chars, 100, 4000, 900),
+    max_elements: clamp(p.max_elements, 0, 60, 20),
     header: false,
   }).catch((e) => `(kon de pagina niet lezen: ${friendlyInjectError(e)})`);
   return { ok: true, text: `${head}\n${snap}` };
@@ -1098,7 +1098,7 @@ function pageAction(action, P) {
       case 'read': {
         const t = pageText(mainRoot());
         const offset = clamp(P.offset, 0, 10000000, 0);
-        const max = clamp(P.max_chars, 200, MAXCH, 4000);
+        const max = clamp(P.max_chars, 200, MAXCH, 3000);
         const slice = t.slice(offset, offset + max);
         const meta = t.length > max || offset ? `[${t.length} tekens${offset ? `, vanaf ${offset}` : ''}]\n` : '';
         const tail = offset + max < t.length ? `\n… [nog ${t.length - offset - max} tekens — gebruik offset=${offset + max}]` : '';

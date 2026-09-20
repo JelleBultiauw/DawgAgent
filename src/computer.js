@@ -9,7 +9,9 @@ const { APP_DIR } = require('./snapshots');
 const execFileP = promisify(execFile);
 const HELPER_SRC = path.join(APP_DIR, 'native', 'orka-helper.swift');
 const HELPER_BIN = path.join(PATHS.bin, 'orka-helper');
-const MAX_IMAGE_WIDTH = 1600;
+// Elke pixel in de breedte kost tokens zodra de afbeelding naar het model gaat; 1280 is
+// ruim genoeg om tekst en knoppen te lezen en scheelt tientallen procenten per screenshot.
+const MAX_IMAGE_WIDTH = 1280;
 
 let building = null;
 let geo = null;
@@ -68,7 +70,11 @@ async function toScreen(x, y) {
 
 const toImage = (v) => Math.round(v * (geo?.k || 1));
 
-async function screenshot(outDir, { ocr = true } = {}) {
+// Zet helper-coördinaten (echte schermpixels) om naar coördinaten in de verkleinde screenshot.
+const scaleLine = (line) =>
+  String(line).replace(/@\((\d+),(\d+)\) (\d+)x(\d+)/, (_, x, y, w, h) => `@(${toImage(x)},${toImage(y)}) ${toImage(w)}x${toImage(h)}`);
+
+async function screenshot(outDir, { ocr = true, ocrLimit = 220 } = {}) {
   const g = await geometry();
   const base = path.join(PATHS.tmp, `shot-${Date.now()}`);
   const png = `${base}.png`;
@@ -89,23 +95,52 @@ async function screenshot(outDir, { ocr = true } = {}) {
   if (ocr) {
     const res = await helper(['ocr', png], 40000).catch(() => null);
     if (res?.items?.length) {
+      const limit = Math.max(0, Math.min(400, Number(ocrLimit) || 220));
       lines.push('Tekst op scherm (OCR, middelpunt):');
-      for (const it of res.items.slice(0, 320)) {
+      for (const it of res.items.slice(0, limit)) {
         const cx = Math.round((it.x + it.w / 2) * g.imgW);
         const cy = Math.round((it.y + it.h / 2) * g.imgH);
         lines.push(`"${it.text}" @(${cx},${cy})`);
       }
+      if (res.items.length > limit) lines.push(`… en nog ${res.items.length - limit} stukken tekst (vraag gerust opnieuw als je iets speciaals zoekt)`);
     }
   }
   fs.rmSync(png, { force: true });
   return { text: lines.join('\n'), images: [jpg] };
 }
 
-async function uiElements() {
+// Lijst met elementen van het voorste venster (toegankelijkheid). `limit` houdt het klein,
+// `filter` laat alleen regels zien waar de tekst in voorkomt (bv. één knop opzoeken).
+async function uiElements({ limit = 350, filter = '' } = {}) {
   await geometry();
-  const res = await helper(['ax', 350], 25000);
-  const scale = (line) => line.replace(/@\((\d+),(\d+)\) (\d+)x(\d+)/, (_, x, y, w, h) => `@(${toImage(x)},${toImage(y)}) ${toImage(w)}x${toImage(h)}`);
-  return `Elementen in ${res.app}${res.truncated ? ' (ingekort)' : ''} — rol "label" = waarde @(klik-x,klik-y) grootte:\n${res.elements.map(scale).join('\n') || '(geen toegankelijke elementen gevonden)'}`;
+  const max = Math.max(1, Math.min(600, Number(limit) || 350));
+  const res = await helper(['ax', max], 25000);
+  const needle = String(filter || '').trim().toLowerCase();
+  const all = res.elements || [];
+  const lines = (needle ? all.filter((l) => String(l).toLowerCase().includes(needle)) : all).map(scaleLine);
+  const extra = [res.truncated ? 'ingekort' : '', needle ? `gefilterd op "${filter}"` : ''].filter(Boolean).join(', ');
+  return `Elementen in ${res.app}${extra ? ` (${extra})` : ''} — rol "label" = waarde @(klik-x,klik-y) grootte:\n${lines.join('\n') || '(geen toegankelijke elementen gevonden)'}`;
+}
+
+// Goedkope tekstupdate na een actie: voorste app + de elementen van het voorste venster.
+// Dit vervangt de dure screenshot-per-actie (die duizenden tokens per stap kostte) en is
+// meestal zelfs preciezer, want je ziet de echte knoppen en velden met klikpunten.
+// Levert het niets op (app zonder toegankelijkheid), dan pakt de aanroeper alsnog een beeld.
+async function uiDigest({ limit = 60 } = {}) {
+  await geometry();
+  let res;
+  try {
+    res = await helper(['ax', Math.max(10, Math.min(120, Number(limit) || 60))], 20000);
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+  const lines = (res.elements || []).map(scaleLine).filter((l) => l.trim());
+  if (lines.length < 3) return { ok: false, app: res.app };
+  return {
+    ok: true,
+    app: res.app,
+    text: `Voorste app: ${res.app}${res.truncated ? ' (lijst ingekort)' : ''} — elementen van het venster (label @(klik-x,klik-y)):\n${lines.join('\n')}`,
+  };
 }
 
 async function click(x, y, button = 'left', clicks = 1) {
@@ -153,4 +188,4 @@ async function permissions(prompt = false) {
   return helper(prompt ? ['permissions', 'prompt'] : ['permissions']);
 }
 
-module.exports = { ensureHelper, screenshot, uiElements, click, move, drag, scroll, typeText, key, openApp, permissions, geometry, ocrText };
+module.exports = { ensureHelper, screenshot, uiElements, uiDigest, click, move, drag, scroll, typeText, key, openApp, permissions, geometry, ocrText };

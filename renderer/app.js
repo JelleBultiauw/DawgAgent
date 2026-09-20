@@ -2182,6 +2182,8 @@ async function renderSettings() {
   drawThinking();
   const maxSteps = h('input', { class: 'input', type: 'number', min: 5, max: 1000, value: cfg.maxSteps, style: 'width:90px' });
   maxSteps.addEventListener('change', () => saveCfg({ maxSteps: Math.max(5, Number(maxSteps.value) || 150) }));
+  const compactAt = h('input', { class: 'input', type: 'number', min: 0, max: 1000000, step: 10000, value: cfg.compactAtTokens ?? 80000, style: 'width:110px' });
+  compactAt.addEventListener('change', () => saveCfg({ compactAtTokens: Math.max(0, Number(compactAt.value) || 0) }));
 
   inner.append(
     h(
@@ -2202,6 +2204,11 @@ async function renderSettings() {
         settingRow('Model ziet afbeeldingen', 'Uit = foto’s en screenshots worden als herkende tekst (OCR) doorgegeven', toggleSwitch(cfg.vision, (on) => saveCfg({ vision: on }))),
         settingRow('API-adres', 'Werkt met elke OpenAI-compatibele API', baseUrl),
         settingRow('Max. stappen per beurt', `Hoeveel tool-aanroepen DawgAgent achter elkaar mag doen`, maxSteps),
+        settingRow(
+          'Oude gesprekken samenvatten vanaf',
+          'In tokens: daarboven wordt het oudere deel van een lange chat samengevat zodat niet elke stap de hele geschiedenis opnieuw kost. 0 = nooit.',
+          compactAt,
+        ),
       ),
     ),
   );
@@ -2304,6 +2311,7 @@ async function renderSettings() {
           ? `Chrome praat met DawgAgent op poort ${b.port}${b.tab?.title ? ` · ${b.tab.title.slice(0, 60)}` : ''}`
           : 'Laad hem eenmalig in Chrome: Ontwikkelaarsmodus aan, "Uitgepakte extensie laden" en kies de map hieronder.',
       ),
+      b.extChanged ? h('div', { class: 'row-hint' }, 'De extensiebestanden zijn bijgewerkt — herlaad hem één keer in chrome://extensions (knop hiernaast) zodat Chrome de nieuwe versie gebruikt.') : null,
       h('div', { class: 'path' }, `Extensiemap: ${shortPath(b.dir)}`),
     );
     browserActions.textContent = '';

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DawgAgent Browser",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Laat de DawgAgent-app je eigen Chrome lezen en bedienen — met paginatekst en genummerde elementen in plaats van dure screenshots. Met zijpaneel dat je actieve tab volgt.",
   "homepage_url": "https://github.com/JelleBultiauw/dawgagentbrowser",
   "minimum_chrome_version": "116",

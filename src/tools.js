@@ -59,14 +59,27 @@ async function imageResult(abs, ctx) {
   return { text: `Afbeelding: ${abs}\nHet model ondersteunt geen afbeeldingen; herkende tekst (OCR):\n${text || '(geen tekst)'}` };
 }
 
+// Na een actie krijg je standaard een goedkope tekstupdate: de voorste app plus de elementen
+// van dat venster (met klikpunten). Een screenshot-afbeelding kost duizenden tokens en blijft
+// ook in de context staan, dus die maken we alleen als er echt om gevraagd wordt — of als de
+// tekstupdate niets oplevert (app zonder toegankelijkheid).
 async function afterAction(desc, args, ctx) {
   if (args.screenshot === false) return { text: `${desc}.` };
-  await sleep(Number(args.wait_ms ?? 700));
-  const shot = await computer.screenshot(ctx.filesDir);
-  return { text: `${desc}.\n\n${shot.text}`, images: shot.images };
+  const wantImage = args.screenshot === true;
+  await sleep(Number(args.wait_ms ?? (wantImage ? 700 : 350)));
+  if (!wantImage) {
+    const digest = await computer.uiDigest().catch(() => null);
+    if (digest?.ok) return { text: `${desc}.\n\n${digest.text}` };
+  }
+  const shot = await computer.screenshot(ctx.filesDir, { ocrLimit: ctx.cfg.vision ? 120 : 320 });
+  return { text: `${desc}.\n\n${shot.text}`, images: ctx.cfg.vision ? shot.images : undefined };
 }
 
-const screenshotParam = { type: 'boolean', description: 'Maak na de actie een nieuwe screenshot (standaard true).' };
+const screenshotParam = {
+  type: 'boolean',
+  description:
+    'Weglaten (aanbevolen) = korte tekstupdate: voorste app + elementen van het venster met klikpunten. true = echte screenshot-afbeelding (duur, alleen als je het scherm echt moet zíen). false = alleen de bevestiging.',
+};
 
 // ---------- basistools ----------
 const CORE = [
@@ -474,7 +487,7 @@ const BROWSER = [
     kind: 'browser-read',
     dynamicKind: (a) => (BROWSER_READ.has(a.action || 'snapshot') ? 'browser-read' : 'browser-act'),
     hideOnRun: false, // het venster van DawgAgent hoeft niet weg; Chrome staat los
-    description: `Bedien de browser (Chrome) via de DawgAgent-extensie: lezen én klikken op echte websites, in de tabs van de gebruiker. Dit is de goedkoopste manier om webpagina's te bekijken — je krijgt tekst en een genummerde lijst met knoppen/velden in plaats van screenshots, dus gebruik dit in plaats van computer_* voor alles wat met websites te maken heeft.
+    description: `Bedien de browser (Chrome) via de DawgAgent-extensie: lezen én klikken op echte websites, in de tabs van de gebruiker. Dit is de goedkoopste manier om webpagina's te bekijken — je krijgt tekst en een genummerde lijst met knoppen/velden in plaats van screenshots (de Jev-Ultrafast-aanpak), dus gebruik dit in plaats van computer_* voor alles wat met websites te maken heeft. Blijf daarbij: een \`read\` kost een fractie van een afbeelding en is bijna altijd genoeg.
 
 Werkwijze: snapshot (eenmalig) → daarna click/type met de refs [1], [2] … Refs gelden per snapshot; maak bij "element bestaat niet meer" een nieuwe snapshot. Links die niet in de lijst staan kun je met click {text: "de linktekst"} pakken. open/navigate/click geven automatisch een korte snapshot terug, dus lees niet onnodig opnieuw. read is het goedkoopst; html voor structuur; eval voor lastige pagina's; screenshot alleen als tekst niet volstaat.
 
@@ -755,21 +768,26 @@ const COMPUTER = [
   {
     name: 'computer_screenshot',
     kind: 'computer-read',
-    description: 'Maak een screenshot van het hoofdscherm. Je krijgt de afbeelding plus een lijst met herkende tekst en exacte klik-coördinaten.',
+    description:
+      'Maak een screenshot van het hoofdscherm: de afbeelding plus een lijst met herkende tekst en exacte klik-coördinaten. Duur (afbeelding + OCR) — één keer aan het begin van een klus is meestal genoeg; daarna geven de acties zelf al een tekstupdate.',
     parameters: obj({}),
     summary: () => 'screenshot',
     async run(a, ctx) {
-      return computer.screenshot(ctx.filesDir);
+      return computer.screenshot(ctx.filesDir, { ocrLimit: ctx.cfg.vision ? 120 : 320 });
     },
   },
   {
     name: 'computer_ui_elements',
     kind: 'computer-read',
-    description: 'Lijst van knoppen, velden en andere elementen in het voorste venster (via toegankelijkheid), met exacte klik-coördinaten.',
-    parameters: obj({}),
-    summary: () => 'UI-elementen lezen',
-    async run() {
-      return { text: await computer.uiElements() };
+    description:
+      'Lijst van knoppen, velden en andere elementen in het voorste venster (via toegankelijkheid), met exacte klik-coördinaten. Goedkoop; met filter krijg je alleen de regels die je zoekt (bv. filter:"Opslaan").',
+    parameters: obj({
+      limit: { type: 'integer', description: 'Max. aantal elementen, standaard 350.' },
+      filter: { type: 'string', description: 'Alleen regels waar deze tekst in voorkomt (niet hoofdlettergevoelig).' },
+    }),
+    summary: (a) => `UI-elementen lezen${a?.filter ? ` (filter "${short(a.filter, 30)}")` : ''}`,
+    async run(a) {
+      return { text: await computer.uiElements({ limit: a.limit, filter: a.filter }) };
     },
   },
   {
@@ -874,13 +892,13 @@ const COMPUTER = [
   {
     name: 'computer_wait',
     kind: 'computer-read',
-    description: 'Wacht een aantal seconden (bv. tot iets geladen is) en maak daarna een screenshot.',
-    parameters: obj({ seconds: { type: 'number' } }, ['seconds']),
+    description:
+      'Wacht een aantal seconden (bv. tot iets geladen is) en lees daarna de staat van het scherm: standaard een korte tekstupdate, met screenshot:true een echte afbeelding.',
+    parameters: obj({ seconds: { type: 'number' }, screenshot: screenshotParam }, ['seconds']),
     summary: (a) => `wacht ${a.seconds}s`,
     async run(a, ctx) {
       await sleep(Math.min(Math.max(Number(a.seconds) || 1, 0.2), 60) * 1000);
-      const shot = await computer.screenshot(ctx.filesDir);
-      return { text: `Gewacht.\n\n${shot.text}`, images: shot.images };
+      return afterAction('Gewacht', { ...a, wait_ms: 0 }, ctx);
     },
   },
 ];

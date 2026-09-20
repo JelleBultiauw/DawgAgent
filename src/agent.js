@@ -15,8 +15,18 @@ const { isInsideApp, createSnapshot, APP_DIR } = require('./snapshots');
 
 const MAX_TOOL_TEXT = 40000;
 const MAX_AUTO_NUDGES = 3;
+// Hoeveel afbeeldingen (screenshots, foto's) er in de geschiedenis blijven. Elke afbeelding
+// kost bij élke volgende stap opnieuw tokens, en oude beelden zeggen bijna nooit nog iets:
+// de tekst die erbij hoorde (OCR, vensterlijst) is al bewaard. Ze vallen in blokken van 8 weg
+// zodat de prompt-cache van DeepSeek zo lang mogelijk geldig blijft.
+const VISION_KEEP = 8;
 const MIME = { '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Samenvatprompt voor gewone chats (BloxCode heeft zijn eigen versie).
+const SUMMARY_PROMPT = `Vat het gesprek hieronder samen zodat het werk daarna naadloos door kan gaan.
+Bewaar: doelen en wensen van de gebruiker, genomen besluiten (met de reden), bestanden en paden die gemaakt of gewijzigd zijn, belangrijke commando's en hun uitkomst, gevonden feiten, openstaande taken en problemen, en voorkeuren van de gebruiker.
+Schrijf puntsgewijs, in de taal van het gesprek, maximaal 500 woorden. Geen beleefdheden, geen herhalingen, geen code tenzij een paar regels echt nodig zijn.`;
 
 // BloxCode-modules pas laden als ze nodig zijn.
 const blox = () => ({
@@ -87,13 +97,19 @@ function validArgs(s) {
 // (_compacted) blijven zichtbaar in de app maar gaan niet meer mee naar het model.
 function toApiMessages(session, cfg) {
   const msgs = session.messages.filter((m) => !m.role.startsWith('_') && !m._compacted);
+  // Afbeeldingen van de beurt die nu loopt blijven altijd staan (daar werkt het model mee);
+  // alleen oudere vallen weg, in blokken van 8, zodat de prompt-cache zo lang mogelijk geldt.
+  let turnStart = -1;
+  msgs.forEach((m, i) => {
+    if (isTurnStart(m)) turnStart = i;
+  });
   const refs = [];
   msgs.forEach((m, i) => {
-    if (m.role === 'user') (m._images || []).forEach((_, j) => refs.push(`${i}:${j}`));
+    if (m.role === 'user') (m._images || []).forEach((_, j) => refs.push({ key: `${i}:${j}`, current: i >= turnStart && turnStart >= 0 }));
   });
-  const total = refs.length;
-  const drop = !cfg.vision ? total : total <= 12 ? 0 : 8 * Math.ceil((total - 12) / 8);
-  const dropped = new Set(refs.slice(0, drop));
+  const old = refs.filter((r) => !r.current);
+  const dropCount = !cfg.vision ? refs.length : old.length <= VISION_KEEP ? 0 : 8 * Math.ceil((old.length - VISION_KEEP) / 8);
+  const dropped = new Set((cfg.vision ? old : refs).slice(0, dropCount).map((r) => r.key));
 
   return msgs.map((m, i) => {
     if (m.role === 'user') {
@@ -319,12 +335,22 @@ class Agent {
     return { title: parent.title || 'chat', text: parts.join('\n\n') };
   }
 
-  // BloxCode: lange geschiedenis samenvatten (automatisch vanaf compactAtTokens, of via /compact).
+  // Lange geschiedenis samenvatten (automatisch vanaf een drempel, of via /compact).
+  // BloxCode gebruikt zijn eigen drempel en prompt; gewone chats die uit config.compactAtTokens.
   // Alles behalve de laatste twee beurten wordt samengevat; de oude berichten blijven zichtbaar.
   async compactSession(session, { force = false } = {}) {
-    const { core } = blox();
-    const bcfg = core.getBloxConfig();
-    if (!force && (session.usage?.lastPrompt || 0) < bcfg.compactAtTokens) return false;
+    const isBlox = session.kind === 'blox';
+    let threshold;
+    let summaryPrompt;
+    if (isBlox) {
+      const { core } = blox();
+      threshold = core.getBloxConfig().compactAtTokens;
+      summaryPrompt = core.SUMMARY_PROMPT;
+    } else {
+      threshold = Number(store.getConfig().compactAtTokens ?? 0);
+      summaryPrompt = SUMMARY_PROMPT;
+    }
+    if (!force && (!threshold || (session.usage?.lastPrompt || 0) < threshold)) return false;
     const starts = [];
     session.messages.forEach((m, i) => isTurnStart(m) && starts.push(i));
     if (starts.length <= 2) {
@@ -339,7 +365,7 @@ class Agent {
       apiKey: store.getApiKey(),
       maxTokens: 4000,
       messages: [
-        { role: 'system', content: core.SUMMARY_PROMPT },
+        { role: 'system', content: summaryPrompt },
         { role: 'user', content: `${earlier}\n${transcript(old)}`.slice(-300000) },
       ],
     });
@@ -400,6 +426,11 @@ class Agent {
         tools = B.tools.buildBloxTools({ bcfg });
         system = B.core.buildBloxPrompt({ mode: bcfg.mode, status: B.studio.status(), vision: cfg.vision, skills: B.core.loadSkills() });
       } else {
+        // Gewone chats: wordt de geschiedenis te lang, dan vatten we het oudere deel samen
+        // (config.compactAtTokens). Dat scheelt bij elke volgende stap opnieuw tokens.
+        try {
+          await this.compactSession(session);
+        } catch {}
         tools = buildTools({ cfg, session, connectors: this.connectors });
         system = buildSystemPrompt({ cfg, session, connectors: this.connectors, side: this.sideContext(session) });
       }
