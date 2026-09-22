@@ -551,6 +551,51 @@ function showView(view) {
 
 function setTopTitle(t) {
   $('#topbar-title').textContent = t || '';
+  applyChatKind();
+}
+
+// Waar zit je? In een map-chat (Jobsearch, OSINT) laat de titelbalk meteen zien dat dit geen
+// gewone chat is: badge naast de titel, gekleurde rand rond de invoer, eigen placeholder.
+const FOLDER_INFO = {
+  job: {
+    label: 'Jobsearch-chat',
+    icon: 'briefcase',
+    view: 'jobsearch',
+    map: 'Jobsearch-map',
+    line: 'Vacatures zoeken en volledig lezen via LinkedIn, Indeed en Randstad.',
+    placeholder: 'Zoek vacatures, stages of hulp bij solliciteren…',
+  },
+  osint: {
+    label: 'OSINT-chat',
+    icon: 'target',
+    view: 'osint',
+    map: 'OSINT-map',
+    line: 'E-mail, gebruikersnaam of telefoonnummer uitzoeken — lekken en accounts.',
+    placeholder: 'Vraag om een e-mailadres, gebruikersnaam of nummer na te trekken…',
+  },
+};
+
+function applyChatKind() {
+  const kind = state.view === 'chat' ? state.session?.kind : null;
+  const info = FOLDER_INFO[kind] || null;
+  const main = $('#main');
+  main?.classList.toggle('in-job', kind === 'job');
+  main?.classList.toggle('in-osint', kind === 'osint');
+  const badge = $('#topbar-kind');
+  if (!badge) return;
+  badge.hidden = !info;
+  if (!info) {
+    delete badge.dataset.kind;
+    badge.textContent = '';
+    return;
+  }
+  if (badge.dataset.kind === kind) return;
+  badge.dataset.kind = kind;
+  badge.className = `topbar-kind ${kind}`;
+  badge.textContent = '';
+  badge.append(icon(info.icon, 12), h('span', {}, info.label));
+  badge.title = `Deze chat hoort bij de ${info.map} — klik om de map te openen`;
+  badge.onclick = () => showView(info.view);
 }
 
 // ---------- merkblok: logo + naam + modus (DawgAgent / DawgSecretAgent) ----------
@@ -1161,11 +1206,14 @@ function emptyState() {
 }
 
 function emptyStateInner() {
+  const info = FOLDER_INFO[state.session?.kind] || null;
   const root = h(
     'div',
     { class: 'empty' },
     h('div', { class: 'logo photo' }, appLogo()),
     h('h1', {}, 'Waar gaan we aan werken?'),
+    info ? h('div', { class: `empty-kind ${state.session.kind}` }, icon(info.icon, 13), info.label) : null,
+    info ? h('p', {}, info.line) : null,
     h('p', {}, `Werkmap: ${shortPath(state.session?.workspace || state.cfg.workspace)}`),
   );
 
@@ -1781,13 +1829,15 @@ function renderComposer() {
     ? `BloxCode staat aan in deze chat — klik om uit te zetten${blox.state.status?.studioName ? ` · ${blox.state.status.studioName}` : ''}`
     : 'BloxCode aanzetten: je Roblox-developer die rechtstreeks in Studio bouwt, script en test';
   $('#chip-blox').disabled = Boolean(s?.running);
+  const folderPh = FOLDER_INFO[s?.kind]?.placeholder || null;
   input().placeholder = isBlox
     ? "Vraag BloxCode iets, typ / voor commando's, of sleep een foto hierheen…"
-    : (s?.study || 'off') === 'off'
-      ? `Vraag DawgAgent iets, of sleep bestanden hierheen…`
-      : s.study === 'test'
-        ? 'Proeftoets: laat je overhoren uit je hoofd — antwoorden komen pas in het rapport…'
-        : 'Study: sleep je slides of cursus hierheen, of vraag om een vraag over de stof…';
+    : folderPh ||
+      ((s?.study || 'off') === 'off'
+        ? `Vraag DawgAgent iets, of sleep bestanden hierheen…`
+        : s.study === 'test'
+          ? 'Proeftoets: laat je overhoren uit je hoofd — antwoorden komen pas in het rapport…'
+          : 'Study: sleep je slides of cursus hierheen, of vraag om een vraag over de stof…');
   if (isBlox) {
     // BloxCode: de werkmap-chip wordt de Studio-kiezer, de modus-chip plan/vragen/veilig auto/alles auto.
     const c = blox.composerChips();
