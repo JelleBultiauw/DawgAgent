@@ -2436,7 +2436,7 @@ function textToKv(text, sep) {
   return out;
 }
 
-function connectorModal(existing) {
+function connectorModal(existing, note) {
   const c = existing ? structuredClone(existing) : { name: '', type: 'stdio', command: '', args: [], env: {}, url: '', headers: {}, enabled: true };
   const name = h('input', { class: 'input', value: c.name, placeholder: 'bv. github' });
   const command = h('input', { class: 'input mono', value: c.command || '', placeholder: 'npx' });
@@ -2473,9 +2473,10 @@ function connectorModal(existing) {
     h(
       'div',
       {},
-      h('h2', {}, existing ? 'Connector bewerken' : 'Connector toevoegen'),
+      h('h2', {}, c.id ? 'Connector bewerken' : 'Connector toevoegen'),
       h('p', { class: 'lead' }, `Een MCP-server geeft DawgAgent nieuwe tools, zoals GitHub, Notion, databases of je agenda.`),
       h('div', { class: 'field' }, h('label', {}, 'Naam'), name),
+      note ? h('p', { class: 'lead' }, note) : null,
       h('div', { class: 'field' }, seg),
       stdioBox,
       httpBox,
@@ -2594,6 +2595,7 @@ async function renderJobsearch() {
                   ),
                 )
               : null,
+            p.hint ? h('div', { class: 'row-hint' }, p.hint) : null,
             p.ready === false ? h('div', { class: 'card-error' }, 'De lokale server is niet gevonden op deze Mac.') : null,
           ),
           h('div', { class: 'card-side' }, btn('Toevoegen', 'primary', () => addJobPreset(p), 'plus')),
@@ -2660,7 +2662,9 @@ async function newJobChat() {
   await openSession(s.id);
 }
 
-// Een voorgestelde job-koppeling toevoegen aan de connectors.
+// Een voorgestelde job-koppeling toevoegen aan de connectors. Vraagt de koppeling een
+// sleutel (needsToken, bv. Bright Data), dan gaat meteen het formulier open om die te
+// plakken; de connector wordt pas bij Opslaan toegevoegd.
 async function addJobPreset(p) {
   const list = state.cfg.connectors || [];
   const item = {
@@ -2675,6 +2679,12 @@ async function addJobPreset(p) {
     enabled: true,
     category: 'jobsearch',
   };
+  if (p.needsToken) {
+    const draft = { ...item };
+    delete draft.id;
+    connectorModal(draft, p.hint);
+    return;
+  }
   await saveConnectors([...list.filter((x) => x.id !== p.id), item]);
   toast(`${p.name} toegevoegd — DawgAgent verbindt nu`);
 }

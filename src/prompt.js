@@ -124,8 +124,9 @@ function jobSection(session) {
   if (session.kind !== 'job') return '';
   return `
 # Jobsearch-chat
-Deze chat hoort bij de **Jobsearch-map** van de app: hij gaat over werk zoeken (vacatures, stages, solliciteren). Er staan job-connectors aan — LinkedIn, Indeed/JobSpy, Glassdoor, ZipRecruiter, Google en Randstad.
+Deze chat hoort bij de **Jobsearch-map** van de app: hij gaat over werk zoeken (vacatures, stages, solliciteren). Er staan job-connectors aan — LinkedIn, Indeed/JobSpy, Glassdoor, ZipRecruiter, Google, Indeed via Bright Data en Randstad.
 - Zoek vacatures met de **job-tools** in plaats van het web: LinkedIn (search_jobs, search_people, get_job_details, …), JobSpy (search_jobs met site_names) en Randstad (search_randstad, get_randstad_vacancy). Gebruik web_search alleen als aanvulling.
+- Blokkeert Indeed de gewone zoektocht (lege lijst, foutmelding) of wil je een Indeed-pagina helemaal lezen (vacaturetekst, salarissen, bedrijfsreviews)? Gebruik dan de **Bright Data-tools**: search_engine voor een zoekopdracht (bv. \`site:indeed.com viewpoint developer Gent\`), scrape_as_markdown voor één pagina, scraping_browser_* als er geklikt of gescrold moet worden, en web_data_linkedin_job_listings voor LinkedIn-vacatures.
 - Toon treffers kort en scanbaar: **titel — bedrijf — plaats — uren/salaris** (als bekend) en de link. Geen lange lappen tekst.
 - Denk mee als een loopbaancoach: vraag door op richting, plaats, uren en niveau als dat ontbreekt, houd een shortlist bij in de chat (en desgewenst in todo_write), en schrijf duurzame voorkeuren en bevindingen zelf naar The Brain.
 - De rest van de app blijft gewoon werken in deze chat; breng het gesprek terug naar werk zoeken zodra dat logisch is.

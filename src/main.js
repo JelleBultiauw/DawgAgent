@@ -636,7 +636,7 @@ handle('connectors:restart', async (id) => {
 handle('connectors:parse', (text) => parseServersJson(text));
 handle('connectors:newId', () => crypto.randomBytes(5).toString('hex'));
 
-// Jobsearch: de vaste job-MCP-servers (LinkedIn, JobSpy/Indeed, Randstad) met absolute paden,
+// Jobsearch: de vaste job-MCP-servers (LinkedIn, JobSpy/Indeed, Indeed via Bright Data, Randstad) met absolute paden,
 // zodat de Jobsearch-pagina ze met één klik kan toevoegen en meteen kan verbinden.
 const JOBSEARCH_DIR = path.join(store.PATHS.data, 'jobsearch-mcp');
 handle('jobsearch:presets', () => {
@@ -673,6 +673,19 @@ handle('jobsearch:presets', () => {
         'Vacatures zoeken op meerdere sites tegelijk via JobSpy: Indeed (ook België en Nederland), Glassdoor, ZipRecruiter en Google. Geen API-sleutel nodig.',
       source: 'https://github.com/Bunsly/JobSpy',
       ...lokaal('jobspy_server.py'),
+    },
+    {
+      id: 'job-brightdata-indeed',
+      site: 'Indeed',
+      name: 'Indeed (Bright Data)',
+      blurb:
+        'Publieke Indeed-data rechtstreeks bij de bron: vacatures, bedrijfsprofielen, salarissen en reviews. De gehoste MCP-server van Bright Data omzeilt zelf blokkades en CAPTCHA\'s; nieuwe accounts krijgen 5.000 requests per maand gratis.',
+      source: 'https://github.com/brightdata/brightdata-mcp',
+      needsToken: true,
+      hint: 'Vraagt een (gratis) Bright Data API-token: plak die in de URL bij token=. Je vindt hem in je Bright Data-account onder Settings → Users & API.',
+      type: 'http',
+      url: 'https://mcp.brightdata.com/mcp?token=<BRIGHT-DATA-API-TOKEN>',
+      headers: {},
     },
     {
       id: 'job-randstad',

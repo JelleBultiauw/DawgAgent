@@ -550,6 +550,10 @@ export default {
       'Search jobs on several sites at once via JobSpy: Indeed (incl. Belgium and the Netherlands), Glassdoor, ZipRecruiter and Google. No API key needed.',
     'Vacatures zoeken en volledig lezen op randstad.nl — met plaats, salarisindicatie, uren en opleidingsniveau.':
       'Search and read full job postings on randstad.nl — with location, salary indication, hours and education level.',
+    "Publieke Indeed-data rechtstreeks bij de bron: vacatures, bedrijfsprofielen, salarissen en reviews. De gehoste MCP-server van Bright Data omzeilt zelf blokkades en CAPTCHA's; nieuwe accounts krijgen 5.000 requests per maand gratis.":
+      'Public Indeed data straight from the source: jobs, company profiles, salaries and reviews. Bright Data’s hosted MCP server handles blocks and CAPTCHAs itself; new accounts get 5,000 free requests per month.',
+    'Vraagt een (gratis) Bright Data API-token: plak die in de URL bij token=. Je vindt hem in je Bright Data-account onder Settings → Users & API.':
+      'Requires a (free) Bright Data API token: paste it into the URL after token=. You find it in your Bright Data account under Settings → Users & API.',
     'Nieuwe job-chat': 'New job chat',
     'Nieuwe job-chat (⌘N)': 'New job chat (⌘N)',
     'De job-map: je eigen chats voor alles rond werk zoeken, plus de koppelingen waarmee DawgAgent vacatures vindt op LinkedIn, Indeed, Randstad en meer.':
