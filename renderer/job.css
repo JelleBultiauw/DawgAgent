@@ -29,3 +29,9 @@
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 .chat-item .chat-kind.job { color: #f6a63a; }
+
+/* OSINT: e-mail, gebruikersnaam en nummer uitzoeken in de zijbalk. */
+.osint-side .ic { color: #a78bfa; }
+#view-osint .job-ic { color: #a78bfa; }
+.job-chat.osint-row .job-ic { color: #a78bfa; }
+.chat-item .chat-kind.osint { color: #a78bfa; }

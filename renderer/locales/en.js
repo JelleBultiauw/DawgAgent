@@ -561,6 +561,26 @@ export default {
     'Jouw job-chats': 'Your job chats',
     'Nog geen job-chats. Start er een met "Nieuwe job-chat".': 'No job chats yet. Start one with "New job chat".',
     'Jobsearch-chat — hoort bij de job-map': 'Jobsearch chat — part of the job folder',
+
+    // ---------- OSINT ----------
+    'OSINT: e-mailadressen, gebruikersnamen en telefoonnummers uitzoeken': 'OSINT: look up email addresses, usernames and phone numbers',
+    'Nieuwe OSINT-chat': 'New OSINT chat',
+    'Nieuwe OSINT-chat (⌘N)': 'New OSINT chat (⌘N)',
+    'OSINT-chat': 'OSINT chat',
+    'OSINT-chat — hoort bij de OSINT-map': 'OSINT chat — part of the OSINT folder',
+    'Jouw OSINT-chats': 'Your OSINT chats',
+    'Nog geen OSINT-chats. Start er een met "Nieuwe OSINT-chat".': 'No OSINT chats yet. Start one with "New OSINT chat".',
+    'Jouw OSINT-tools': 'Your OSINT tools',
+    'Nog geen OSINT-tools. Voeg ze hieronder toe — eentje is genoeg om te beginnen.': 'No OSINT tools yet. Add them below — one is enough to start.',
+    'Alle voorgestelde OSINT-koppelingen staan er al in.': 'All suggested OSINT connections are already there.',
+    'Je eigen omgeving om sporen van jezelf (of met toestemming) na te gaan: waar is een e-mailadres geleaked, waar heb je accounts, en welke gebruikersnamen en telefoonnummers horen erbij.':
+      'Your own place to trace your own footprints (or with permission): where an email address was leaked, where you have accounts, and which usernames and phone numbers go with them.',
+    'Wat je gratis krijgt — en wat niet': 'What you get for free — and what you do not',
+    'Gratis en behoorlijk diepgaand': 'Free, and fairly deep',
+    'Niet gratis: wachtwoorden in klare tekst': 'Not free: passwords in plain text',
+    'Beste repos & bronnen': 'Best repos & sources',
+    'aanwezig': 'built in',
+    'Onbekende map.': 'Unknown folder.',
     'nog leeg': 'no messages yet',
 
     // ---------- GitHub-sync ----------
@@ -866,6 +886,7 @@ export default {
     [/^(\d+) connector\(s\) toegevoegd$/, '$1 connector(s) added'],
     [/^(.+) toegevoegd — DawgAgent verbindt nu$/, '$1 added — DawgAgent is connecting'],
     [/^Jouw job-chats \((\d+)\)$/, 'Your job chats ($1)'],
+    [/^Jouw OSINT-chats \((\d+)\)$/, 'Your OSINT chats ($1)'],
     [/^(.*) · (\d+) berichten$/, '$1 · $2 messages'],
     [/^(\d+) project\(en\) met nog niet gepushte wijzigingen — klik voor de details$/, '$1 project(s) with unpushed changes — click for details'],
     [/^(\d+) wijzigingen gepusht · klik voor de activiteit$/, '$1 changes pushed · click for the activity'],

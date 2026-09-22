@@ -699,27 +699,96 @@ handle('jobsearch:presets', () => {
   ];
 });
 
-// Jobsearch-chats: een eigen chatomgeving voor alles rond werk zoeken
-// (session.kind === 'job'), net zoals BloxCode zijn eigen chats heeft.
-handle('job:sessions', () => store.listSessions('job').map((s) => ({ ...s, running: agent.isRunning(s.id) })));
-handle('job:newSession', () => {
+// Map-chats: elke map in de zijbalk (Jobsearch, OSINT) heeft zijn eigen chatomgeving —
+// gewone chats met session.kind = de mapnaam, net zoals BloxCode zijn eigen map heeft.
+const FOLDERS = { job: 'Nieuwe job-chat', osint: 'Nieuwe OSINT-chat' };
+const folderKind = (kind) => {
+  const k = String(kind || '');
+  if (!FOLDERS[k]) throw new Error(i18n.t('Onbekende map.'));
+  return k;
+};
+handle('folder:sessions', (kind) =>
+  store.listSessions(folderKind(kind)).map((s) => ({ ...s, running: agent.isRunning(s.id) })));
+handle('folder:newSession', (kind) => {
+  const k = folderKind(kind);
   const s = store.newSession(store.getConfig().workspace);
-  s.kind = 'job';
-  s.title = i18n.t('Nieuwe job-chat');
+  s.kind = k;
+  s.title = i18n.t(FOLDERS[k]);
   store.saveSession(s);
   return s;
 });
-// Deze chat wel/niet in de Jobsearch-map zetten.
-handle('job:setSession', (sessionId, on) => {
+// Deze chat wel/niet in een map zetten.
+handle('folder:setSession', (kind, sessionId, on) => {
+  const k = folderKind(kind);
   if (agent.isRunning(sessionId)) throw new Error(i18n.t('Wacht tot deze chat klaar is met de beurt en probeer het opnieuw.'));
   const s = store.loadSession(sessionId);
   if (!s) throw new Error(i18n.t('Chat niet gevonden.'));
-  if (on) s.kind = 'job';
-  else delete s.kind;
+  if (on) s.kind = k;
+  else if (s.kind === k) delete s.kind;
   store.saveSession(s);
   send('sessions:changed');
   return { ...s, running: agent.isRunning(s.id) };
 });
+
+// OSINT: de vaste OSINT-koppelingen met absolute paden, zodat de OSINT-pagina ze met
+// één klik kan toevoegen. De lokale server bundelt alle gratis bronnen; osint-mcp is de
+// community-MCP met losse tools (whois, wayback, urlscan, ...).
+const OSINT_DIR = path.join(store.PATHS.data, 'osint-mcp');
+const osintPresets = () => {
+  const py = path.join(OSINT_DIR, '.venv', 'bin', 'python');
+  const script = path.join(OSINT_DIR, 'osint_server.py');
+  return [
+    {
+      id: 'osint-local',
+      site: 'Lokaal',
+      name: 'OSINT-tools (lokaal)',
+      blurb:
+        'E-mailadres, gebruikersnaam en telefoonnummer opzoeken via gratis bronnen: databreaches (XposedOrNot), infostealer-logs (Hudson Rock), wachtwoordlekcheck (Have I Been Pwned), accounts per e-mailadres (holehe), accounts per gebruikersnaam (maigret), Gravatar-profiel, breach-catalogus en telefoongegevens (phonenumbers + ignorant).',
+      type: 'stdio',
+      command: py,
+      args: [script],
+      env: { PYTHONUNBUFFERED: '1' },
+      ready: fs.existsSync(py) && fs.existsSync(script),
+    },
+    {
+      id: 'osint-community',
+      site: 'Community',
+      name: 'osint-mcp (26 losse tools)',
+      blurb:
+        'Verzameling gratis OSINT-tools naast de lokale server: WHOIS, Wayback Machine, urlscan, DNS, e-mail en meer. Bij de eerste start installeert hij de ontbrekende tools zelf (sherlock, maigret, phoneinfoga, …). Draait met mcp<2 omdat de server nog op de oude MCP-API is gebouwd.',
+      source: 'https://github.com/rjn32s/osint-mcp',
+      type: 'stdio',
+      command: '/bin/zsh',
+      args: ['-lc', "exec uvx --with 'mcp<2' osint-mcp"],
+      env: { UV_HTTP_TIMEOUT: '300' },
+      ready: true,
+    },
+  ];
+};
+handle('osint:presets', () => osintPresets());
+
+// De OSINT-tools staan meteen aan, zodat de OSINT-map werkt zonder eerst te klikken.
+// Wie ze later weghaalt, krijgt ze niet terug (osintSeeded).
+function seedOsint() {
+  const cfg = store.getConfig();
+  if (cfg.osintSeeded) return;
+  const list = cfg.connectors || [];
+  const additions = osintPresets()
+    .filter((p) => p.ready !== false && !list.some((c) => c.id === p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      type: p.type || 'stdio',
+      command: p.command || '',
+      args: p.args || [],
+      env: p.env || {},
+      url: p.url || '',
+      headers: p.headers || {},
+      enabled: true,
+      category: 'osint',
+    }));
+  store.setConfig({ connectors: [...list, ...additions], osintSeeded: true });
+}
 
 // Browser (Chrome-extensie)
 handle('browser:status', () => ({ ...bridge.status(), extDir: EXT_DIR }));
@@ -1140,6 +1209,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(() => {
   skills.seedSkills();
+  seedOsint();
   store.cleanupEmptySessions();
   syncExtension();
   bridge.start();

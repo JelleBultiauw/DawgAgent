@@ -51,6 +51,7 @@ const ICONS = {
   terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
   pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
   bulb: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2Z"/>',
@@ -530,7 +531,7 @@ function toggleSwitch(on, onChange) {
 // ---------- views ----------
 function showView(view) {
   state.view = view;
-  for (const v of ['chat', 'skills', 'connectors', 'jobsearch', 'brain', 'settings']) $(`#view-${v}`).hidden = v !== view;
+  for (const v of ['chat', 'skills', 'connectors', 'jobsearch', 'osint', 'brain', 'settings']) $(`#view-${v}`).hidden = v !== view;
   document.querySelectorAll('.side-btn[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $('#usage').hidden = view !== 'chat' || !state.session?.usage?.lastPrompt;
   if (view === 'chat') {
@@ -541,6 +542,7 @@ function showView(view) {
     if (view === 'skills') renderSkills();
     if (view === 'connectors') renderConnectors();
     if (view === 'jobsearch') renderJobsearch();
+    if (view === 'osint') renderOsint();
     if (view === 'brain') brainui.open();
     if (view === 'settings') renderSettings();
   }
@@ -733,6 +735,7 @@ function chatItemRow(s) {
   const badges = [
     s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
     s.kind === 'job' ? h('span', { class: 'chat-kind job', title: 'Jobsearch-chat — hoort bij de job-map' }, icon('briefcase', 12)) : null,
+    s.kind === 'osint' ? h('span', { class: 'chat-kind osint', title: 'OSINT-chat — hoort bij de OSINT-map' }, icon('target', 12)) : null,
     s.study ? h('span', { class: 'chat-kind study', title: s.study === 'test' ? 'Proeftoets staat aan in deze chat' : 'Study staat aan in deze chat' }, icon('bulb', 12)) : null,
   ].filter(Boolean);
   const row = h(
@@ -1009,9 +1012,17 @@ function renderSessionList() {
   list.textContent = '';
   const isBlox = state.session?.kind === 'blox';
   const isJob = state.session?.kind === 'job';
+  const isOsint = state.session?.kind === 'osint';
   $('#btn-blox')?.classList.toggle('active', Boolean(isBlox) && state.view === 'chat');
   $('#btn-jobs')?.classList.toggle('active', state.view === 'jobsearch' || Boolean(isJob));
-  $('#btn-new').title = isBlox ? 'Nieuwe BloxCode-chat (⌘N)' : isJob ? 'Nieuwe job-chat (⌘N)' : 'Nieuwe chat (⌘N)';
+  $('#btn-osint')?.classList.toggle('active', state.view === 'osint' || Boolean(isOsint));
+  $('#btn-new').title = isBlox
+    ? 'Nieuwe BloxCode-chat (⌘N)'
+    : isJob
+      ? 'Nieuwe job-chat (⌘N)'
+      : isOsint
+        ? 'Nieuwe OSINT-chat (⌘N)'
+        : 'Nieuwe chat (⌘N)';
   const sessions = state.sessions || [];
   if (!sessions.length) {
     list.append(h('div', { class: 'chat-group' }, 'Chats'), h('div', { class: 'chat-empty' }, 'Nog geen chats'));
@@ -1066,14 +1077,14 @@ async function newChat() {
   closeMenu();
   const cur = state.session;
   const wantBlox = cur?.kind === 'blox';
-  const wantJob = cur?.kind === 'job'; // een job-chat blijft in de Jobsearch-map
+  const wantFolder = ['job', 'osint'].includes(cur?.kind) ? cur.kind : null; // een map-chat blijft in zijn map
   const wantStudy = cur?.study || 'off'; // de leerstand gaat mee naar de nieuwe chat
   if (cur && !cur.messages.length && !cur.running) {
     state.pending = [];
   } else {
     state.session = await call('sessions:new', state.cfg.workspace);
     if (wantBlox) state.session = await call('blox:setSession', state.session.id, true);
-    if (wantJob) state.session = await call('job:setSession', state.session.id, true);
+    if (wantFolder) state.session = await call('folder:setSession', wantFolder, state.session.id, true);
     if (wantStudy !== 'off') {
       try {
         const res = await call('sessions:setStudy', state.session.id, wantStudy);
@@ -2542,21 +2553,18 @@ function importJsonModal() {
 
 async function renderJobsearch() {
   [state.connectors, state.cfg] = await Promise.all([call('connectors:status'), call('config:get')]);
-  const [presets, jobChats] = await Promise.all([call('jobsearch:presets').catch(() => []), call('job:sessions').catch(() => [])]);
+  const [presets, jobChats] = await Promise.all([call('jobsearch:presets').catch(() => []), call('folder:sessions', 'job').catch(() => [])]);
   const list = state.cfg.connectors || [];
   const jobs = list.filter((c) => c.category === 'jobsearch');
   const inner = pageShell(
     'jobsearch',
     'Jobsearch',
     'De job-map: je eigen chats voor alles rond werk zoeken, plus de koppelingen waarmee DawgAgent vacatures vindt op LinkedIn, Indeed, Randstad en meer.',
-    [btn('Nieuwe job-chat', 'primary', newJobChat, 'plus'), btn('Alle connectors', '', () => showView('connectors'), 'plug')],
+    [btn('Nieuwe job-chat', 'primary', () => newFolderChat('job'), 'plus'), btn('Alle connectors', '', () => showView('connectors'), 'plug')],
   );
 
   // De job-chats: gewone chats, maar gebundeld in deze map (kind 'job').
-  const chatCards = h('div', { class: 'cards' });
-  if (!jobChats.length) chatCards.append(h('div', { class: 'empty-card' }, 'Nog geen job-chats. Start er een met "Nieuwe job-chat".'));
-  for (const s of jobChats) chatCards.append(jobChatRow(s));
-  inner.append(h('div', { class: 'job-sub' }, jobChats.length ? `Jouw job-chats (${jobChats.length})` : 'Jouw job-chats'), chatCards);
+  inner.append(...folderChatsBlock('job', jobChats, 'Jouw job-chats', 'Nog geen job-chats. Start er een met "Nieuwe job-chat".'));
 
   const cards = h('div', { class: 'cards' });
   if (!jobs.length) cards.append(h('div', { class: 'empty-card' }, 'Nog geen job-koppelingen. Voeg er hieronder een toe.'));
@@ -2598,7 +2606,7 @@ async function renderJobsearch() {
             p.hint ? h('div', { class: 'row-hint' }, p.hint) : null,
             p.ready === false ? h('div', { class: 'card-error' }, 'De lokale server is niet gevonden op deze Mac.') : null,
           ),
-          h('div', { class: 'card-side' }, btn('Toevoegen', 'primary', () => addJobPreset(p), 'plus')),
+          h('div', { class: 'card-side' }, btn('Toevoegen', 'primary', () => addPreset(p, 'jobsearch', renderJobsearch), 'plus')),
         ),
       );
     }
@@ -2620,15 +2628,17 @@ async function renderJobsearch() {
   );
 }
 
-// Een rij in de Jobsearch-map: openen, hernoemen of verwijderen.
-function jobChatRow(s) {
+// Een rij in een map (Jobsearch, OSINT): openen, hernoemen of verwijderen.
+function folderChatRow(s) {
+  const osint = s.kind === 'osint';
+  const refresh = osint ? renderOsint : renderJobsearch;
   const when = fmtWhen(s.updated);
   const desc = [when, s.count ? `${s.count} berichten` : 'nog leeg', s.running ? 'bezig…' : ''].filter(Boolean).join(' · ');
   return h(
     'div',
-    { class: 'card job-chat', onclick: () => openSession(s.id), title: s.title },
-    h('span', { class: 'job-ic' }, icon('briefcase', 16)),
-    h('div', { class: 'card-main' }, h('div', { class: 'card-title' }, s.title || 'Job-chat'), h('div', { class: 'card-desc' }, desc)),
+    { class: `card job-chat${osint ? ' osint-row' : ''}`, onclick: () => openSession(s.id), title: s.title },
+    h('span', { class: 'job-ic' }, icon(osint ? 'target' : 'briefcase', 16)),
+    h('div', { class: 'card-main' }, h('div', { class: 'card-title' }, s.title || (osint ? 'OSINT-chat' : 'Job-chat')), h('div', { class: 'card-desc' }, desc)),
     s.running ? h('span', { class: 'run-dot' }) : null,
     h(
       'div',
@@ -2642,30 +2652,38 @@ function jobChatRow(s) {
           setTopTitle(naam);
         }
         refreshSessions();
-        renderJobsearch();
+        refresh();
       }),
       iconBtn('trash', 'Verwijderen', async () => {
         if (!(await confirmDialog('Chat verwijderen?', `"${s.title}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
         await call('sessions:delete', s.id);
         refreshSessions();
-        renderJobsearch();
+        refresh();
         if (state.session?.id === s.id) await newChat();
       }),
     ),
   );
 }
 
-// Nieuwe chat in de Jobsearch-map (kind 'job'), daarna meteen openen.
-async function newJobChat() {
+// Nieuwe chat in een map (kind 'job' of 'osint'), daarna meteen openen.
+async function newFolderChat(kind) {
   closeMenu();
-  const s = await call('job:newSession');
+  const s = await call('folder:newSession', kind);
   await openSession(s.id);
 }
 
-// Een voorgestelde job-koppeling toevoegen aan de connectors. Vraagt de koppeling een
+// De chatlijst van een map: kop + kaarten (of een lege staat).
+function folderChatsBlock(kind, sessions, label, emptyText) {
+  const cards = h('div', { class: 'cards' });
+  if (!sessions.length) cards.append(h('div', { class: 'empty-card' }, emptyText));
+  for (const s of sessions) cards.append(folderChatRow(s));
+  return [h('div', { class: 'job-sub' }, sessions.length ? `${label} (${sessions.length})` : label), cards];
+}
+
+// Een voorgestelde koppeling toevoegen aan de connectors. Vraagt de koppeling een
 // sleutel (needsToken, bv. Bright Data), dan gaat meteen het formulier open om die te
 // plakken; de connector wordt pas bij Opslaan toegevoegd.
-async function addJobPreset(p) {
+async function addPreset(p, category, refresh) {
   const list = state.cfg.connectors || [];
   const item = {
     id: p.id,
@@ -2677,7 +2695,7 @@ async function addJobPreset(p) {
     url: p.url || '',
     headers: p.headers || {},
     enabled: true,
-    category: 'jobsearch',
+    category,
   };
   if (p.needsToken) {
     const draft = { ...item };
@@ -2687,6 +2705,160 @@ async function addJobPreset(p) {
   }
   await saveConnectors([...list.filter((x) => x.id !== p.id), item]);
   toast(`${p.name} toegevoegd — DawgAgent verbindt nu`);
+  refresh?.();
+}
+
+// ---------- OSINT ----------
+// De beste open-source tools en bronnen om je eigen sporen na te gaan
+// (wat al in de lokale tools zit, staat er met een label bij).
+const OSINT_BRONNEN = [
+  { naam: 'holehe', desc: 'E-mailadres → op welke 120+ sites er een account bestaat.', url: 'https://github.com/megadose/holehe', tag: 'aanwezig' },
+  { naam: 'maigret', desc: 'Gebruikersnaam → accounts op duizenden sites, met profielinfo.', url: 'https://github.com/soxoj/maigret', tag: 'aanwezig' },
+  { naam: 'ignorant', desc: 'Telefoonnummer → geregistreerd bij Instagram, Snapchat, Amazon en meer.', url: 'https://github.com/megadose/ignorant', tag: 'aanwezig' },
+  { naam: 'XposedOrNot', desc: 'Databreaches per e-mailadres én domein — de bron achter onze lekcheck.', url: 'https://xposedornot.com', tag: 'aanwezig' },
+  { naam: 'Hudson Rock Cavalier', desc: 'Infostealer-logs: is dit toestel besmet en welke inloggegevens zijn gestolen.', url: 'https://www.hudsonrock.com/free-tools', tag: 'aanwezig' },
+  { naam: 'Have I Been Pwned', desc: 'De standaard voor breach-checks en Pwned Passwords; hun officiële MCP werkt met een API-sleutel.', url: 'https://haveibeenpwned.com/', tag: 'aanwezig' },
+  { naam: 'Sherlock', desc: 'De klassieker: gebruikersnaam zoeken op 400+ sites.', url: 'https://github.com/sherlock-project/sherlock' },
+  { naam: 'WhatsMyName', desc: 'De grootste open lijst van sites en hun gebruikersnaam-patronen, met web-app.', url: 'https://github.com/WebBreacher/WhatsMyName' },
+  { naam: 'Blackbird', desc: 'E-mail of gebruikersnaam verkennen, met export en analyse.', url: 'https://github.com/p1ngul1n0/blackbird' },
+  { naam: 'GHunt', desc: 'Google-account OSINT (naam, foto, diensten) — werkt met je eigen cookies.', url: 'https://github.com/mxrch/GHunt' },
+  { naam: 'h8mail', desc: 'E-maillekken verzamelen uit meerdere bronnen; meer bronnen zodra je sleutels hebt.', url: 'https://github.com/khast3x/h8mail' },
+  { naam: 'PhoneInfoga', desc: 'Telefoonnummer OSINT met scanners en dorks.', url: 'https://github.com/sundowndev/phoneinfoga' },
+  { naam: 'Epieos', desc: 'E-mailadres of telefoonnummer → gekoppelde accounts (webdienst).', url: 'https://epieos.com' },
+  { naam: 'Intelligence X', desc: 'Zoeken in lekken, pastes en het dark web (deels betaald).', url: 'https://intelx.io' },
+  { naam: 'DeHashed', desc: 'Betaalde zoekmachine voor gelekte wachtwoorden in klare tekst.', url: 'https://dehashed.com' },
+  { naam: 'LeakCheck', desc: 'Betaald: e-mailadres → volledige lekrecords, inclusief wachtwoorden.', url: 'https://leakcheck.io' },
+  { naam: 'OSINT Framework', desc: 'Overzichtskaart van honderden OSINT-bronnen per categorie.', url: 'https://osintframework.com' },
+];
+
+// Een rij met een bron: naam, uitleg en een knop naar de repo of site.
+function bronCard(b) {
+  return h(
+    'div',
+    { class: 'card' },
+    h('span', { class: 'job-ic' }, icon('target', 16)),
+    h('div', { class: 'card-main' }, h('div', { class: 'card-title' }, b.naam, b.tag ? h('span', { class: 'tag' }, b.tag) : null), h('div', { class: 'card-desc' }, b.desc)),
+    h('div', { class: 'card-side' }, iconBtn('external', 'Openen', () => call('app:openExternal', b.url))),
+  );
+}
+
+async function renderOsint() {
+  [state.connectors, state.cfg] = await Promise.all([call('connectors:status'), call('config:get')]);
+  const [presets, chats] = await Promise.all([call('osint:presets').catch(() => []), call('folder:sessions', 'osint').catch(() => [])]);
+  const list = state.cfg.connectors || [];
+  const tools = list.filter((c) => c.category === 'osint');
+  const inner = pageShell(
+    'osint',
+    'OSINT',
+    'Je eigen omgeving om sporen van jezelf (of met toestemming) na te gaan: waar is een e-mailadres geleaked, waar heb je accounts, en welke gebruikersnamen en telefoonnummers horen erbij.',
+    [btn('Nieuwe OSINT-chat', 'primary', () => newFolderChat('osint'), 'plus'), btn('Alle connectors', '', () => showView('connectors'), 'plug')],
+  );
+
+  inner.append(...folderChatsBlock('osint', chats, 'Jouw OSINT-chats', 'Nog geen OSINT-chats. Start er een met "Nieuwe OSINT-chat".'));
+
+  const cards = h('div', { class: 'cards' });
+  if (!tools.length) cards.append(h('div', { class: 'empty-card' }, 'Nog geen OSINT-tools. Voeg ze hieronder toe — eentje is genoeg om te beginnen.'));
+  for (const c of tools) cards.append(connectorCardEl(c, list, renderOsint));
+  inner.append(h('div', { class: 'job-sub' }, 'Jouw OSINT-tools'), cards);
+
+  const missing = presets.filter((p) => !list.some((c) => c.id === p.id));
+  if (missing.length) {
+    const addCards = h('div', { class: 'cards' });
+    for (const p of missing) {
+      addCards.append(
+        h(
+          'div',
+          { class: 'card', style: 'align-items:flex-start' },
+          h('span', { class: 'job-ic' }, icon('target', 17)),
+          h(
+            'div',
+            { class: 'card-main' },
+            h('div', { class: 'card-title' }, p.name, h('span', { class: 'tag' }, p.site)),
+            h('div', { class: 'card-desc' }, p.blurb),
+            p.source
+              ? h(
+                  'div',
+                  { class: 'job-link-row' },
+                  h(
+                    'a',
+                    {
+                      class: 'job-link',
+                      href: '#',
+                      onclick: (e) => {
+                        e.preventDefault();
+                        call('app:openExternal', p.source);
+                      },
+                    },
+                    p.source.replace(/^https?:\/\//, ''),
+                  ),
+                )
+              : null,
+            p.hint ? h('div', { class: 'row-hint' }, p.hint) : null,
+            p.ready === false ? h('div', { class: 'card-error' }, 'De lokale server is niet gevonden op deze Mac.') : null,
+          ),
+          h('div', { class: 'card-side' }, btn('Toevoegen', 'primary', () => addPreset(p, 'osint', renderOsint), 'plus')),
+        ),
+      );
+    }
+    inner.append(h('div', { class: 'job-sub' }, 'Toevoegen'), addCards);
+  } else {
+    inner.append(
+      h('div', { class: 'job-sub' }, 'Toevoegen'),
+      h('div', { class: 'empty-card' }, 'Alle voorgestelde OSINT-koppelingen staan er al in.'),
+    );
+  }
+
+  inner.append(h('div', { class: 'job-sub' }, 'Wat je gratis krijgt — en wat niet'));
+  const uitleg = h('div', { class: 'cards' });
+  uitleg.append(
+    h(
+      'div',
+      { class: 'card', style: 'align-items:flex-start' },
+      h('span', { class: 'job-ic' }, icon('eye', 16)),
+      h(
+        'div',
+        { class: 'card-main' },
+        h('div', { class: 'card-title' }, 'Gratis en behoorlijk diepgaand'),
+        h(
+          'div',
+          { class: 'card-desc' },
+          'In welke databreaches je adres zit (met datum, branche en welke gegevenssoorten — ook of er wachtwoorden bij zaten), of een toestel in infostealer-logs voorkomt, op welke sites je adres een account heeft, bij welke diensten je nummer bekend is, en of een bepaald wachtwoord in een lek staat.',
+        ),
+      ),
+    ),
+  );
+  uitleg.append(
+    h(
+      'div',
+      { class: 'card', style: 'align-items:flex-start' },
+      h('span', { class: 'job-ic' }, icon('key', 16)),
+      h(
+        'div',
+        { class: 'card-main' },
+        h('div', { class: 'card-title' }, 'Niet gratis: wachtwoorden in klare tekst'),
+        h(
+          'div',
+          { class: 'card-desc' },
+          'Gratis bronnen tonen welke gegevens gelekt zijn en soms gemaskeerde inloggegevens. Volledige wachtwoorden komen uit betaalde zoekmachines als DeHashed, LeakCheck, Snusbase of Intelligence X. Heb je daar een account, dan bouw ik er een connector met jouw sleutel bij.',
+        ),
+      ),
+    ),
+  );
+  inner.append(uitleg);
+
+  inner.append(h('div', { class: 'job-sub' }, 'Beste repos & bronnen'));
+  const repos = h('div', { class: 'cards' });
+  for (const b of OSINT_BRONNEN) repos.append(bronCard(b));
+  inner.append(repos);
+
+  inner.append(
+    h(
+      'div',
+      { class: 'job-hint' },
+      h('strong', {}, 'Gebruik dit voor je eigen gegevens of met toestemming. '),
+      'De tools controleren of er accounts bestaan; ze versturen geen berichten en proberen niets van anderen binnen te dringen. Vraag in de chat bijvoorbeeld: "zoek mijn e-mailadres op: naam@voorbeeld.be" of "welke accounts hangen aan mijn gebruikersnaam?"',
+    ),
+  );
 }
 
 // ---------- settings ----------
@@ -4076,6 +4248,7 @@ async function init() {
   api.on('sessions:changed', () => {
     refreshSessions();
     if (state.view === 'jobsearch') renderJobsearch();
+    if (state.view === 'osint') renderOsint();
   });
   // Een chat die vanuit het browser-zijpaneel begint, openen we meteen in het venster.
   api.on('session:open', (id) => {

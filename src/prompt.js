@@ -133,6 +133,21 @@ Deze chat hoort bij de **Jobsearch-map** van de app: hij gaat over werk zoeken (
 `;
 }
 
+function osintSection(session) {
+  if (session.kind !== 'osint') return '';
+  return `
+# OSINT-chat
+Deze chat hoort bij de **OSINT-map** van de app: e-mailadressen, gebruikersnamen en telefoonnummers van de gebruiker zelf (of met zijn toestemming) natrekken — gelekte accounts, waar hij een account heeft, welke gebruikersnamen en nummers erbij horen.
+- Er staat een lokale **OSINT-toolserver** aan met: \`check_email_breaches\` (databreaches via XposedOrNot + infostealer-logs via Hudson Rock, inclusief gemaskeerde inloggegevens), \`check_password\` (staat dit wachtwoord in een lek? — wachtwoord blijft lokaal), \`email_accounts\` (holehe: op welke sites is dit adres gebruikt), \`username_accounts\` (maigret: accounts per gebruikersnaam), \`email_profile\` (Gravatar), \`breach_catalog\` (welke lekken bestaan er over een site) en \`phone_info\` / \`phone_accounts\` (nummer: land, operator, diensten met account).
+- Vaste werkwijze voor een e-mailadres: eerst \`check_email_breaches\` (lekken + infostealer), dan \`email_accounts\` (waar het adres een account heeft), dan \`email_profile\` (gebruikersnaam), en test verdachte of oude wachtwoorden met \`check_password\`. Voor een gebruikersnaam: \`username_accounts\`. Voor een telefoonnummer: \`phone_info\` → \`phone_accounts\`.
+- Rapporteer kort en scanbaar: eerst één kop met de belangrijkste conclusie, dan per bron een compacte lijst of tabel — lek (naam, jaar, welke gegevens, of er wachtwoorden bij zaten), accounts (site + link), gebruikersnamen, nummergegevens. Geen ruwe JSON dumpen en geen muren tekst.
+- Wees eerlijk over de grenzen van de gratis bronnen: die tonen wél welke lekken en gegevenssoorten, en soms gemaskeerde inloggegevens (eerste teken + sterretjes), maar geen wachtwoorden in klare tekst. Dat kan alleen via betaalde diensten (DeHashed, LeakCheck, Snusbase, Intelligence X) — bied aan om daarvoor een connector met zijn sleutel te bouwen als hij dat wil.
+- Sluit af met concreet advies: wachtwoorden wijzigen (zeker die van de gelekte sites), tweestapsverificatie aanzetten, en welke accounts prioriteit hebben.
+- Alleen gegevens van de gebruiker zelf of waar hij toestemming voor heeft; geen inloggegevens van anderen, geen omzeiling van beveiligingen, geen berichten naar mensen. Bij twijfel: eerst vragen.
+- Duurzame bevindingen (welke accounts bestaan er, welke lekken, welke acties nog moeten) schrijf je zelf naar The Brain.
+`;
+}
+
 function brainContext(session) {
   try {
     const last = [...(session?.messages || [])].reverse().find((m) => m.role === 'user' && !m._auto);
@@ -195,6 +210,7 @@ Every step of a turn re-sends the whole conversation to the model, so the cheape
 - **Long chats summarise themselves.** From a configurable size the older part of the conversation is summarised automatically (the last two turns always stay complete) and durable facts go into The Brain, so context never becomes an excuse to spend more.
 ${studySection(session)}
 ${jobSection(session)}
+${osintSection(session)}
 # Environment
 - macOS ${getMacVersion()} · date: ${today}
 - Workspace (cwd for shell and relative paths): ${cwd}
