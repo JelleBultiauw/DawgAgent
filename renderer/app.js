@@ -75,6 +75,7 @@ const ICONS = {
     '<path fill="currentColor" stroke="none" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.7.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
   forward: '<path d="m9 18 6-6-6-6"/>',
+  briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
 };
 Object.assign(ICONS, BLOX_ICONS, BRAIN_ICONS);
 
@@ -529,7 +530,7 @@ function toggleSwitch(on, onChange) {
 // ---------- views ----------
 function showView(view) {
   state.view = view;
-  for (const v of ['chat', 'skills', 'connectors', 'brain', 'settings']) $(`#view-${v}`).hidden = v !== view;
+  for (const v of ['chat', 'skills', 'connectors', 'jobsearch', 'brain', 'settings']) $(`#view-${v}`).hidden = v !== view;
   document.querySelectorAll('.side-btn[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $('#usage').hidden = view !== 'chat' || !state.session?.usage?.lastPrompt;
   if (view === 'chat') {
@@ -539,6 +540,7 @@ function showView(view) {
     setTopTitle('');
     if (view === 'skills') renderSkills();
     if (view === 'connectors') renderConnectors();
+    if (view === 'jobsearch') renderJobsearch();
     if (view === 'brain') brainui.open();
     if (view === 'settings') renderSettings();
   }
@@ -2328,82 +2330,84 @@ async function renderConnectors() {
       ),
     );
   }
-  for (const c of list) {
-    const st = state.connectors.find((x) => x.id === c.id);
-    const status = c.enabled === false ? 'off' : st?.status || 'connecting';
-    const statusText = { off: 'Uit', connecting: 'Verbinden…', connected: `${st?.tools.length || 0} tools`, error: 'Fout' }[status];
-    const where = c.type === 'http' ? c.url : [c.command, ...(c.args || [])].join(' ');
-    const toolsBox = h('div', { class: 'card-tools', hidden: true }, (st?.tools || []).map((t) => h('span', { class: 'tag', title: t.description }, t.name)));
-    cards.append(
+  for (const c of list) cards.append(connectorCardEl(c, list, () => (state.view === 'jobsearch' ? renderJobsearch() : renderConnectors())));
+  inner.append(cards);
+}
+
+// Eén connector als kaart: status, tools, aan/uit en een menu met bewerken / opnieuw verbinden / verwijderen.
+function connectorCardEl(c, list, rerender) {
+  const st = state.connectors.find((x) => x.id === c.id);
+  const status = c.enabled === false ? 'off' : st?.status || 'connecting';
+  const statusText = { off: 'Uit', connecting: 'Verbinden…', connected: `${st?.tools.length || 0} tools`, error: 'Fout' }[status];
+  const where = c.type === 'http' ? c.url : [c.command, ...(c.args || [])].join(' ');
+  const toolsBox = h('div', { class: 'card-tools', hidden: true }, (st?.tools || []).map((t) => h('span', { class: 'tag', title: t.description }, t.name)));
+  return h(
+    'div',
+    { class: 'card', style: 'align-items:flex-start' },
+    h('span', { class: `status-dot ${status}`, style: 'margin-top:7px' }),
+    h(
+      'div',
+      { class: 'card-main' },
       h(
         'div',
-        { class: 'card', style: 'align-items:flex-start' },
-        h('span', { class: `status-dot ${status}`, style: 'margin-top:7px' }),
+        { class: 'card-title' },
+        c.name,
         h(
-          'div',
-          { class: 'card-main' },
-          h(
-            'div',
-            { class: 'card-title' },
-            c.name,
-            h(
-              'span',
-              {
-                class: 'tag',
-                style: 'font-family:var(--font);cursor:pointer',
-                onclick: () => (toolsBox.hidden = !toolsBox.hidden),
-              },
-              statusText,
-            ),
-          ),
-          h('div', { class: 'card-desc mono', title: where }, where),
-          status === 'error' && st?.error ? h('div', { class: 'card-error' }, st.error) : null,
-          toolsBox,
-        ),
-        h(
-          'div',
-          { class: 'card-side' },
-          toggleSwitch(c.enabled !== false, async (on) => {
-            const next = list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x));
-            await saveConnectors(next);
-          }),
-          iconBtn('more', 'Meer', (e) =>
-            openMenu(
-              e.currentTarget,
-              [
-                { label: 'Bewerken', icon: 'pencil', action: () => connectorModal(c) },
-                {
-                  label: 'Opnieuw verbinden',
-                  icon: 'refresh',
-                  action: async () => {
-                    await call('connectors:restart', c.id);
-                    renderConnectors();
-                  },
-                },
-                '-',
-                {
-                  label: 'Verwijderen',
-                  icon: 'trash',
-                  action: async () => {
-                    if (!(await confirmDialog('Connector verwijderen?', `"${c.name}" wordt losgekoppeld.`, 'Verwijderen', true))) return;
-                    await saveConnectors(list.filter((x) => x.id !== c.id));
-                  },
-                },
-              ],
-              { align: 'right' },
-            ),
-          ),
+          'span',
+          {
+            class: 'tag',
+            style: 'font-family:var(--font);cursor:pointer',
+            onclick: () => (toolsBox.hidden = !toolsBox.hidden),
+          },
+          statusText,
         ),
       ),
-    );
-  }
-  inner.append(cards);
+      h('div', { class: 'card-desc mono', title: where }, where),
+      status === 'error' && st?.error ? h('div', { class: 'card-error' }, st.error) : null,
+      toolsBox,
+    ),
+    h(
+      'div',
+      { class: 'card-side' },
+      toggleSwitch(c.enabled !== false, async (on) => {
+        const next = list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x));
+        await saveConnectors(next);
+      }),
+      iconBtn('more', 'Meer', (e) =>
+        openMenu(
+          e.currentTarget,
+          [
+            { label: 'Bewerken', icon: 'pencil', action: () => connectorModal(c) },
+            {
+              label: 'Opnieuw verbinden',
+              icon: 'refresh',
+              action: async () => {
+                await call('connectors:restart', c.id);
+                rerender();
+              },
+            },
+            '-',
+            {
+              label: 'Verwijderen',
+              icon: 'trash',
+              action: async () => {
+                if (!(await confirmDialog('Connector verwijderen?', `"${c.name}" wordt losgekoppeld.`, 'Verwijderen', true))) return;
+                await saveConnectors(list.filter((x) => x.id !== c.id));
+              },
+            },
+          ],
+          { align: 'right' },
+        ),
+      ),
+    ),
+  );
 }
 
 async function saveConnectors(list) {
   state.connectors = await call('connectors:save', list);
   state.cfg = await call('config:get');
   if (state.view === 'connectors') renderConnectors();
+  if (state.view === 'jobsearch') renderJobsearch();
 }
 
 const parseLines = (text) =>
@@ -2490,7 +2494,7 @@ function connectorModal(existing) {
           const next = list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item];
           closeModal();
           await saveConnectors(next);
-          if (state.view !== 'connectors') showView('connectors');
+          if (state.view !== 'connectors' && state.view !== 'jobsearch') showView('connectors');
         }),
       ),
     ),
@@ -2523,6 +2527,103 @@ function importJsonModal() {
       ),
     ),
   );
+}
+
+// ---------- jobsearch ----------
+// Alles waarmee DawgAgent vacatures zoekt op één plek: LinkedIn, JobSpy (Indeed,
+// Glassdoor, ZipRecruiter, Google) en Randstad. De voorgestelde koppelingen komen uit
+// het hoofdproces (jobsearch:presets), zodat de paden naar de lokale servers kloppen.
+
+async function renderJobsearch() {
+  [state.connectors, state.cfg] = await Promise.all([call('connectors:status'), call('config:get')]);
+  const presets = await call('jobsearch:presets').catch(() => []);
+  const list = state.cfg.connectors || [];
+  const jobs = list.filter((c) => c.category === 'jobsearch');
+  const inner = pageShell(
+    'jobsearch',
+    'Jobsearch',
+    'Vacatures zoeken op LinkedIn, Indeed, Randstad en meer. Deze koppelingen geven DawgAgent job-tools — vraag het gewoon in de chat, of zet ze hier aan en uit.',
+    [btn('Alle connectors', '', () => showView('connectors'), 'plug'), btn('Connector toevoegen', 'primary', () => connectorModal(), 'plus')],
+  );
+
+  const cards = h('div', { class: 'cards' });
+  if (!jobs.length) cards.append(h('div', { class: 'empty-card' }, 'Nog geen job-koppelingen. Voeg er hieronder een toe.'));
+  for (const c of jobs) cards.append(connectorCardEl(c, list, renderJobsearch));
+  inner.append(h('div', { class: 'job-sub' }, 'Jouw job-zoekers'), cards);
+
+  const missing = presets.filter((p) => !list.some((c) => c.id === p.id));
+  if (missing.length) {
+    const addCards = h('div', { class: 'cards' });
+    for (const p of missing) {
+      addCards.append(
+        h(
+          'div',
+          { class: 'card', style: 'align-items:flex-start' },
+          h('span', { class: 'job-ic' }, icon('briefcase', 17)),
+          h(
+            'div',
+            { class: 'card-main' },
+            h('div', { class: 'card-title' }, p.name, h('span', { class: 'tag' }, p.site)),
+            h('div', { class: 'card-desc' }, p.blurb),
+            p.source
+              ? h(
+                  'div',
+                  { class: 'job-link-row' },
+                  h(
+                    'a',
+                    {
+                      class: 'job-link',
+                      href: '#',
+                      onclick: (e) => {
+                        e.preventDefault();
+                        call('app:openExternal', p.source);
+                      },
+                    },
+                    p.source.replace(/^https?:\/\//, ''),
+                  ),
+                )
+              : null,
+            p.ready === false ? h('div', { class: 'card-error' }, 'De lokale server is niet gevonden op deze Mac.') : null,
+          ),
+          h('div', { class: 'card-side' }, btn('Toevoegen', 'primary', () => addJobPreset(p), 'plus')),
+        ),
+      );
+    }
+    inner.append(h('div', { class: 'job-sub' }, 'Toevoegen'), addCards);
+  } else {
+    inner.append(
+      h('div', { class: 'job-sub' }, 'Toevoegen'),
+      h('div', { class: 'empty-card' }, 'Alle voorgestelde job-koppelingen staan er al in. Meer sites? Voeg een eigen MCP-server toe via Connectors.'),
+    );
+  }
+
+  inner.append(
+    h(
+      'div',
+      { class: 'job-hint' },
+      h('strong', {}, 'Zo gebruik je het: '),
+      'vraag in de chat bijvoorbeeld "zoek 10 junior developer-vacatures in Gent van deze week" of "wat staat er in Randstad-vacature 9215506?". DawgAgent kiest zelf de juiste tools.',
+    ),
+  );
+}
+
+// Een voorgestelde job-koppeling toevoegen aan de connectors.
+async function addJobPreset(p) {
+  const list = state.cfg.connectors || [];
+  const item = {
+    id: p.id,
+    name: p.name,
+    type: p.type || 'stdio',
+    command: p.command || '',
+    args: p.args || [],
+    env: p.env || {},
+    url: p.url || '',
+    headers: p.headers || {},
+    enabled: true,
+    category: 'jobsearch',
+  };
+  await saveConnectors([...list.filter((x) => x.id !== p.id), item]);
+  toast(`${p.name} toegevoegd — DawgAgent verbindt nu`);
 }
 
 // ---------- settings ----------
@@ -3917,6 +4018,7 @@ async function init() {
   api.on('connectors:changed', (list) => {
     state.connectors = list;
     if (state.view === 'connectors') renderConnectors();
+    if (state.view === 'jobsearch') renderJobsearch();
   });
   await refreshSessions();
   await newChat();

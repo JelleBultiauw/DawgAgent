@@ -636,6 +636,56 @@ handle('connectors:restart', async (id) => {
 handle('connectors:parse', (text) => parseServersJson(text));
 handle('connectors:newId', () => crypto.randomBytes(5).toString('hex'));
 
+// Jobsearch: de vaste job-MCP-servers (LinkedIn, JobSpy/Indeed, Randstad) met absolute paden,
+// zodat de Jobsearch-pagina ze met één klik kan toevoegen en meteen kan verbinden.
+const JOBSEARCH_DIR = path.join(store.PATHS.data, 'jobsearch-mcp');
+handle('jobsearch:presets', () => {
+  const py = path.join(JOBSEARCH_DIR, '.venv', 'bin', 'python');
+  const lokaal = (bestand) => {
+    const script = path.join(JOBSEARCH_DIR, bestand);
+    return {
+      type: 'stdio',
+      command: py,
+      args: [script],
+      env: { PYTHONUNBUFFERED: '1' },
+      ready: fs.existsSync(py) && fs.existsSync(script),
+    };
+  };
+  return [
+    {
+      id: 'job-linkedin',
+      site: 'LinkedIn',
+      name: 'LinkedIn',
+      blurb:
+        'Vacatures zoeken, profielen en bedrijven bekijken en je LinkedIn-inbox lezen — via je eigen ingelogde sessie. De eerste keer opent de server eenmalig een Chrome-venster om in te loggen (of neemt hij je bestaande Chrome-sessie over).',
+      source: 'https://github.com/stickerdaniel/linkedin-mcp-server',
+      command: '/bin/zsh',
+      args: ['-lc', 'exec uvx mcp-server-linkedin@latest'],
+      env: { UV_HTTP_TIMEOUT: '300' },
+      type: 'stdio',
+      ready: true,
+    },
+    {
+      id: 'job-jobspy',
+      site: 'JobSpy',
+      name: 'Indeed · Glassdoor · ZipRecruiter · Google',
+      blurb:
+        'Vacatures zoeken op meerdere sites tegelijk via JobSpy: Indeed (ook België en Nederland), Glassdoor, ZipRecruiter en Google. Geen API-sleutel nodig.',
+      source: 'https://github.com/Bunsly/JobSpy',
+      ...lokaal('jobspy_server.py'),
+    },
+    {
+      id: 'job-randstad',
+      site: 'Randstad',
+      name: 'Randstad (NL)',
+      blurb:
+        'Vacatures zoeken en volledig lezen op randstad.nl — met plaats, salarisindicatie, uren en opleidingsniveau.',
+      source: 'https://www.randstad.nl/vacatures',
+      ...lokaal('randstad_server.py'),
+    },
+  ];
+});
+
 // Browser (Chrome-extensie)
 handle('browser:status', () => ({ ...bridge.status(), extDir: EXT_DIR }));
 handle('browser:sync', () => syncExtension());

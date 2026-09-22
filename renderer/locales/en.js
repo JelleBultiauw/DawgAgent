@@ -530,6 +530,27 @@ export default {
     'server': 'server',
     'log': 'log',
 
+    // ---------- Jobsearch ----------
+    'Jobsearch: vacatures zoeken via LinkedIn, Indeed, Randstad en meer': 'Jobsearch: search jobs via LinkedIn, Indeed, Randstad and more',
+    'Vacatures zoeken op LinkedIn, Indeed, Randstad en meer. Deze koppelingen geven DawgAgent job-tools — vraag het gewoon in de chat, of zet ze hier aan en uit.':
+      'Search for jobs on LinkedIn, Indeed, Randstad and more. These connectors give DawgAgent job tools — just ask in the chat, or switch them on and off here.',
+    'Alle connectors': 'All connectors',
+    'Connector toevoegen': 'Add connector',
+    'Jouw job-zoekers': 'Your job connectors',
+    'Nog geen job-koppelingen. Voeg er hieronder een toe.': 'No job connectors yet. Add one below.',
+    'Alle voorgestelde job-koppelingen staan er al in. Meer sites? Voeg een eigen MCP-server toe via Connectors.':
+      'All suggested job connectors are already set up. More sites? Add your own MCP server via Connectors.',
+    'De lokale server is niet gevonden op deze Mac.': 'The local server was not found on this Mac.',
+    'Zo gebruik je het:': 'How to use it:',
+    'vraag in de chat bijvoorbeeld "zoek 10 junior developer-vacatures in Gent van deze week" of "wat staat er in Randstad-vacature 9215506?". DawgAgent kiest zelf de juiste tools.':
+      'ask in the chat, for example "find 10 junior developer jobs in Ghent from this week" or "what is in Randstad vacancy 9215506?". DawgAgent picks the right tools itself.',
+    'Vacatures zoeken, profielen en bedrijven bekijken en je LinkedIn-inbox lezen — via je eigen ingelogde sessie. De eerste keer opent de server eenmalig een Chrome-venster om in te loggen (of neemt hij je bestaande Chrome-sessie over).':
+      'Search jobs, view profiles and companies, and read your LinkedIn inbox — through your own logged-in session. The first time, the server opens a Chrome window once to sign in (or it takes over your existing Chrome session).',
+    'Vacatures zoeken op meerdere sites tegelijk via JobSpy: Indeed (ook België en Nederland), Glassdoor, ZipRecruiter en Google. Geen API-sleutel nodig.':
+      'Search jobs on several sites at once via JobSpy: Indeed (incl. Belgium and the Netherlands), Glassdoor, ZipRecruiter and Google. No API key needed.',
+    'Vacatures zoeken en volledig lezen op randstad.nl — met plaats, salarisindicatie, uren en opleidingsniveau.':
+      'Search and read full job postings on randstad.nl — with location, salary indication, hours and education level.',
+
     // ---------- GitHub-sync ----------
     'Repo aanmaken': 'Create repo',
     'Repo aanmaken en pushen': 'Create repo and push',
@@ -831,6 +852,7 @@ export default {
     [/^(\d+) mappen$/, '$1 folders'],
     [/^(\d+) map$/, '$1 folder'],
     [/^(\d+) connector\(s\) toegevoegd$/, '$1 connector(s) added'],
+    [/^(.+) toegevoegd — DawgAgent verbindt nu$/, '$1 added — DawgAgent is connecting'],
     [/^(\d+) project\(en\) met nog niet gepushte wijzigingen — klik voor de details$/, '$1 project(s) with unpushed changes — click for details'],
     [/^(\d+) wijzigingen gepusht · klik voor de activiteit$/, '$1 changes pushed · click for the activity'],
     [/^(\d+) geblokkeerd door geheimen$/, '$1 blocked by secrets'],
