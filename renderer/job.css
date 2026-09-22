@@ -15,3 +15,17 @@
 .job-link:hover { color: var(--text); text-decoration: underline; }
 .job-hint { margin-top: 26px; color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 660px; }
 .job-hint strong { color: var(--text); }
+
+/* Job-chats in de map */
+.job-chat { cursor: pointer; align-items: flex-start; }
+.job-chat:hover { background: var(--hover); }
+.job-chat .run-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  margin-top: 12px;
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+.chat-item .chat-kind.job { color: #f6a63a; }

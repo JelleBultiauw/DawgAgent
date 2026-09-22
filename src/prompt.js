@@ -119,6 +119,19 @@ ${stateText || '(nog leeg)'}
 
 // De gebruiker stuurt net een bericht: de app zoekt zelf alvast in The Brain en zet de
 // treffers in de prompt, zodat de agent niet hoeft te hopen dat hij iets vindt.
+// Jobsearch-chats (session.kind === 'job'): een eigen omgeving voor alles rond werk zoeken.
+function jobSection(session) {
+  if (session.kind !== 'job') return '';
+  return `
+# Jobsearch-chat
+Deze chat hoort bij de **Jobsearch-map** van de app: hij gaat over werk zoeken (vacatures, stages, solliciteren). Er staan job-connectors aan — LinkedIn, Indeed/JobSpy, Glassdoor, ZipRecruiter, Google en Randstad.
+- Zoek vacatures met de **job-tools** in plaats van het web: LinkedIn (search_jobs, search_people, get_job_details, …), JobSpy (search_jobs met site_names) en Randstad (search_randstad, get_randstad_vacancy). Gebruik web_search alleen als aanvulling.
+- Toon treffers kort en scanbaar: **titel — bedrijf — plaats — uren/salaris** (als bekend) en de link. Geen lange lappen tekst.
+- Denk mee als een loopbaancoach: vraag door op richting, plaats, uren en niveau als dat ontbreekt, houd een shortlist bij in de chat (en desgewenst in todo_write), en schrijf duurzame voorkeuren en bevindingen zelf naar The Brain.
+- De rest van de app blijft gewoon werken in deze chat; breng het gesprek terug naar werk zoeken zodra dat logisch is.
+`;
+}
+
 function brainContext(session) {
   try {
     const last = [...(session?.messages || [])].reverse().find((m) => m.role === 'user' && !m._auto);
@@ -180,6 +193,7 @@ Every step of a turn re-sends the whole conversation to the model, so the cheape
 - **Don't repeat yourself.** Trust what you just saw; don't re-list a directory you already know, don't re-fetch a page you read this turn.
 - **Long chats summarise themselves.** From a configurable size the older part of the conversation is summarised automatically (the last two turns always stay complete) and durable facts go into The Brain, so context never becomes an excuse to spend more.
 ${studySection(session)}
+${jobSection(session)}
 # Environment
 - macOS ${getMacVersion()} · date: ${today}
 - Workspace (cwd for shell and relative paths): ${cwd}

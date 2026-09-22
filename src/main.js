@@ -686,6 +686,28 @@ handle('jobsearch:presets', () => {
   ];
 });
 
+// Jobsearch-chats: een eigen chatomgeving voor alles rond werk zoeken
+// (session.kind === 'job'), net zoals BloxCode zijn eigen chats heeft.
+handle('job:sessions', () => store.listSessions('job').map((s) => ({ ...s, running: agent.isRunning(s.id) })));
+handle('job:newSession', () => {
+  const s = store.newSession(store.getConfig().workspace);
+  s.kind = 'job';
+  s.title = i18n.t('Nieuwe job-chat');
+  store.saveSession(s);
+  return s;
+});
+// Deze chat wel/niet in de Jobsearch-map zetten.
+handle('job:setSession', (sessionId, on) => {
+  if (agent.isRunning(sessionId)) throw new Error(i18n.t('Wacht tot deze chat klaar is met de beurt en probeer het opnieuw.'));
+  const s = store.loadSession(sessionId);
+  if (!s) throw new Error(i18n.t('Chat niet gevonden.'));
+  if (on) s.kind = 'job';
+  else delete s.kind;
+  store.saveSession(s);
+  send('sessions:changed');
+  return { ...s, running: agent.isRunning(s.id) };
+});
+
 // Browser (Chrome-extensie)
 handle('browser:status', () => ({ ...bridge.status(), extDir: EXT_DIR }));
 handle('browser:sync', () => syncExtension());

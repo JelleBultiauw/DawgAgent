@@ -732,6 +732,7 @@ function chatItemRow(s) {
   const group = groupOf(s);
   const badges = [
     s.kind === 'blox' ? h('span', { class: 'chat-kind', title: 'BloxCode staat aan in deze chat' }, icon('cube', 12)) : null,
+    s.kind === 'job' ? h('span', { class: 'chat-kind job', title: 'Jobsearch-chat — hoort bij de job-map' }, icon('briefcase', 12)) : null,
     s.study ? h('span', { class: 'chat-kind study', title: s.study === 'test' ? 'Proeftoets staat aan in deze chat' : 'Study staat aan in deze chat' }, icon('bulb', 12)) : null,
   ].filter(Boolean);
   const row = h(
@@ -744,7 +745,7 @@ function chatItemRow(s) {
         openSession(s.id);
       },
       oncontextmenu: (e) => chatContextMenu(s, e),
-      title: `${s.title}${s.kind === 'blox' ? ' · BloxCode' : ''}${s.study ? (s.study === 'test' ? ' · Proeftoets' : ' · Study') : ''}${group ? ` · ${group.name}` : ''}`,
+      title: `${s.title}${s.kind === 'blox' ? ' · BloxCode' : ''}${s.kind === 'job' ? ' · Jobsearch' : ''}${s.study ? (s.study === 'test' ? ' · Proeftoets' : ' · Study') : ''}${group ? ` · ${group.name}` : ''}`,
     },
     ...badges,
     s.running ? h('span', { class: 'run-dot' }) : null,
@@ -1007,8 +1008,10 @@ function renderSessionList() {
   const list = $('#chat-list');
   list.textContent = '';
   const isBlox = state.session?.kind === 'blox';
+  const isJob = state.session?.kind === 'job';
   $('#btn-blox')?.classList.toggle('active', Boolean(isBlox) && state.view === 'chat');
-  $('#btn-new').title = isBlox ? 'Nieuwe BloxCode-chat (⌘N)' : 'Nieuwe chat (⌘N)';
+  $('#btn-jobs')?.classList.toggle('active', state.view === 'jobsearch' || Boolean(isJob));
+  $('#btn-new').title = isBlox ? 'Nieuwe BloxCode-chat (⌘N)' : isJob ? 'Nieuwe job-chat (⌘N)' : 'Nieuwe chat (⌘N)';
   const sessions = state.sessions || [];
   if (!sessions.length) {
     list.append(h('div', { class: 'chat-group' }, 'Chats'), h('div', { class: 'chat-empty' }, 'Nog geen chats'));
@@ -1063,12 +1066,14 @@ async function newChat() {
   closeMenu();
   const cur = state.session;
   const wantBlox = cur?.kind === 'blox';
+  const wantJob = cur?.kind === 'job'; // een job-chat blijft in de Jobsearch-map
   const wantStudy = cur?.study || 'off'; // de leerstand gaat mee naar de nieuwe chat
   if (cur && !cur.messages.length && !cur.running) {
     state.pending = [];
   } else {
     state.session = await call('sessions:new', state.cfg.workspace);
     if (wantBlox) state.session = await call('blox:setSession', state.session.id, true);
+    if (wantJob) state.session = await call('job:setSession', state.session.id, true);
     if (wantStudy !== 'off') {
       try {
         const res = await call('sessions:setStudy', state.session.id, wantStudy);
@@ -2536,15 +2541,21 @@ function importJsonModal() {
 
 async function renderJobsearch() {
   [state.connectors, state.cfg] = await Promise.all([call('connectors:status'), call('config:get')]);
-  const presets = await call('jobsearch:presets').catch(() => []);
+  const [presets, jobChats] = await Promise.all([call('jobsearch:presets').catch(() => []), call('job:sessions').catch(() => [])]);
   const list = state.cfg.connectors || [];
   const jobs = list.filter((c) => c.category === 'jobsearch');
   const inner = pageShell(
     'jobsearch',
     'Jobsearch',
-    'Vacatures zoeken op LinkedIn, Indeed, Randstad en meer. Deze koppelingen geven DawgAgent job-tools — vraag het gewoon in de chat, of zet ze hier aan en uit.',
-    [btn('Alle connectors', '', () => showView('connectors'), 'plug'), btn('Connector toevoegen', 'primary', () => connectorModal(), 'plus')],
+    'De job-map: je eigen chats voor alles rond werk zoeken, plus de koppelingen waarmee DawgAgent vacatures vindt op LinkedIn, Indeed, Randstad en meer.',
+    [btn('Nieuwe job-chat', 'primary', newJobChat, 'plus'), btn('Alle connectors', '', () => showView('connectors'), 'plug')],
   );
+
+  // De job-chats: gewone chats, maar gebundeld in deze map (kind 'job').
+  const chatCards = h('div', { class: 'cards' });
+  if (!jobChats.length) chatCards.append(h('div', { class: 'empty-card' }, 'Nog geen job-chats. Start er een met "Nieuwe job-chat".'));
+  for (const s of jobChats) chatCards.append(jobChatRow(s));
+  inner.append(h('div', { class: 'job-sub' }, jobChats.length ? `Jouw job-chats (${jobChats.length})` : 'Jouw job-chats'), chatCards);
 
   const cards = h('div', { class: 'cards' });
   if (!jobs.length) cards.append(h('div', { class: 'empty-card' }, 'Nog geen job-koppelingen. Voeg er hieronder een toe.'));
@@ -2605,6 +2616,48 @@ async function renderJobsearch() {
       'vraag in de chat bijvoorbeeld "zoek 10 junior developer-vacatures in Gent van deze week" of "wat staat er in Randstad-vacature 9215506?". DawgAgent kiest zelf de juiste tools.',
     ),
   );
+}
+
+// Een rij in de Jobsearch-map: openen, hernoemen of verwijderen.
+function jobChatRow(s) {
+  const when = fmtWhen(s.updated);
+  const desc = [when, s.count ? `${s.count} berichten` : 'nog leeg', s.running ? 'bezig…' : ''].filter(Boolean).join(' · ');
+  return h(
+    'div',
+    { class: 'card job-chat', onclick: () => openSession(s.id), title: s.title },
+    h('span', { class: 'job-ic' }, icon('briefcase', 16)),
+    h('div', { class: 'card-main' }, h('div', { class: 'card-title' }, s.title || 'Job-chat'), h('div', { class: 'card-desc' }, desc)),
+    s.running ? h('span', { class: 'run-dot' }) : null,
+    h(
+      'div',
+      { class: 'card-side' },
+      iconBtn('pencil', 'Hernoemen', async () => {
+        const naam = await promptDialog('Chat hernoemen', s.title);
+        if (!naam) return;
+        await call('sessions:rename', s.id, naam);
+        if (state.session?.id === s.id) {
+          state.session.title = naam;
+          setTopTitle(naam);
+        }
+        refreshSessions();
+        renderJobsearch();
+      }),
+      iconBtn('trash', 'Verwijderen', async () => {
+        if (!(await confirmDialog('Chat verwijderen?', `"${s.title}" gaat naar de prullenmand.`, 'Verwijderen', true))) return;
+        await call('sessions:delete', s.id);
+        refreshSessions();
+        renderJobsearch();
+        if (state.session?.id === s.id) await newChat();
+      }),
+    ),
+  );
+}
+
+// Nieuwe chat in de Jobsearch-map (kind 'job'), daarna meteen openen.
+async function newJobChat() {
+  closeMenu();
+  const s = await call('job:newSession');
+  await openSession(s.id);
 }
 
 // Een voorgestelde job-koppeling toevoegen aan de connectors.
@@ -4010,7 +4063,10 @@ async function init() {
   api.on('brain:changed', (info) => brainui.onChanged(info));
   api.on('agent:event', onAgentEvent);
   api.on('browser:changed', () => browserRefresh?.());
-  api.on('sessions:changed', () => refreshSessions());
+  api.on('sessions:changed', () => {
+    refreshSessions();
+    if (state.view === 'jobsearch') renderJobsearch();
+  });
   // Een chat die vanuit het browser-zijpaneel begint, openen we meteen in het venster.
   api.on('session:open', (id) => {
     if (id) openSession(id);

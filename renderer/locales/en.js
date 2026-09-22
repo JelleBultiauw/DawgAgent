@@ -550,6 +550,14 @@ export default {
       'Search jobs on several sites at once via JobSpy: Indeed (incl. Belgium and the Netherlands), Glassdoor, ZipRecruiter and Google. No API key needed.',
     'Vacatures zoeken en volledig lezen op randstad.nl — met plaats, salarisindicatie, uren en opleidingsniveau.':
       'Search and read full job postings on randstad.nl — with location, salary indication, hours and education level.',
+    'Nieuwe job-chat': 'New job chat',
+    'Nieuwe job-chat (⌘N)': 'New job chat (⌘N)',
+    'De job-map: je eigen chats voor alles rond werk zoeken, plus de koppelingen waarmee DawgAgent vacatures vindt op LinkedIn, Indeed, Randstad en meer.':
+      'The job folder: your own chats for everything around finding work, plus the connectors DawgAgent uses to find jobs on LinkedIn, Indeed, Randstad and more.',
+    'Jouw job-chats': 'Your job chats',
+    'Nog geen job-chats. Start er een met "Nieuwe job-chat".': 'No job chats yet. Start one with "New job chat".',
+    'Jobsearch-chat — hoort bij de job-map': 'Jobsearch chat — part of the job folder',
+    'nog leeg': 'no messages yet',
 
     // ---------- GitHub-sync ----------
     'Repo aanmaken': 'Create repo',
@@ -853,6 +861,8 @@ export default {
     [/^(\d+) map$/, '$1 folder'],
     [/^(\d+) connector\(s\) toegevoegd$/, '$1 connector(s) added'],
     [/^(.+) toegevoegd — DawgAgent verbindt nu$/, '$1 added — DawgAgent is connecting'],
+    [/^Jouw job-chats \((\d+)\)$/, 'Your job chats ($1)'],
+    [/^(.*) · (\d+) berichten$/, '$1 · $2 messages'],
     [/^(\d+) project\(en\) met nog niet gepushte wijzigingen — klik voor de details$/, '$1 project(s) with unpushed changes — click for details'],
     [/^(\d+) wijzigingen gepusht · klik voor de activiteit$/, '$1 changes pushed · click for the activity'],
     [/^(\d+) geblokkeerd door geheimen$/, '$1 blocked by secrets'],
